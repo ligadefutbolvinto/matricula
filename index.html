@@ -152,9 +152,14 @@
                 </select>
               </div>
 
-              <button type="submit" class="btn btn-primary btn-full">
-                <span>⚡ Guardar Registro</span>
-              </button>
+              <div class="form-row">
+                <button type="button" id="btn-transfer-pase" class="btn btn-primary btn-full">
+                  <span>Definitivo (Pase)</span>
+                </button>
+                <button type="button" id="btn-transfer-prestamo" class="btn btn-accent btn-full">
+                  <span>Préstamo</span>
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -259,8 +264,10 @@
                 <th width="60px">Foto</th>
                 <th>Jugador</th>
                 <th>C.I.</th>
-                <th>Último Año en Club</th>
-                <th width="150px">Categoría</th>
+                <th>Último Año</th>
+                <th width="120px">Categoría</th>
+                <th width="120px">Condición</th>
+                <th width="160px">Club Destino</th>
               </tr>
             </thead>
             <tbody id="roster-table-body">
@@ -271,11 +278,8 @@
 
         <!-- Roster Actions Footer -->
         <div class="roster-actions-footer">
-          <button id="btn-roster-2024" class="btn btn-primary" type="button">
-            <span>Habilitar Nómina 2024</span>
-          </button>
-          <button id="btn-roster-2025" class="btn btn-accent" type="button">
-            <span>Habilitar Nómina 2025</span>
+          <button id="btn-roster-renew" class="btn btn-primary btn-full" type="button">
+            <span>Habilitar Nómina</span>
           </button>
         </div>
       </div>

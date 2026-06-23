@@ -55,8 +55,7 @@ const elements = {
   rosterSelectedTeamName: document.getElementById('roster-selected-team-name'),
   rosterSelectAll: document.getElementById('roster-select-all'),
   rosterTableBody: document.getElementById('roster-table-body'),
-  btnRoster2024: document.getElementById('btn-roster-2024'),
-  btnRoster2025: document.getElementById('btn-roster-2025'),
+  btnRosterRenew: document.getElementById('btn-roster-renew'),
   rosterPlaceholder: document.getElementById('roster-placeholder'),
   
   // Carnet Elements
@@ -392,11 +391,21 @@ function setupEventListeners() {
   });
 
   // Roster Save Habilitaciones
-  elements.btnRoster2024.addEventListener('click', () => handleRosterSave(2024));
-  elements.btnRoster2025.addEventListener('click', () => handleRosterSave(2025));
+  if (elements.btnRosterRenew) {
+    const currentYear = new Date().getFullYear();
+    elements.btnRosterRenew.querySelector('span').textContent = `Habilitar Nómina ${currentYear}`;
+    elements.btnRosterRenew.addEventListener('click', () => handleRosterSave(currentYear));
+  }
 
-  // Transfer form submit (Save)
-  elements.formTransfer.addEventListener('submit', handleTransferSubmit);
+  // Transfer form button clicks (Pase / Préstamo)
+  const btnTransferPase = document.getElementById('btn-transfer-pase');
+  const btnTransferPrestamo = document.getElementById('btn-transfer-prestamo');
+  if (btnTransferPase) {
+    btnTransferPase.addEventListener('click', () => handleTransferAction('oficial'));
+  }
+  if (btnTransferPrestamo) {
+    btnTransferPrestamo.addEventListener('click', () => handleTransferAction('prestamo'));
+  }
   
   // New Player form submit (Save)
   elements.formNewPlayer.addEventListener('submit', handleNewPlayerSubmit);
@@ -678,9 +687,9 @@ function renderPlayerTimeline(playerCi) {
   });
 }
 
-// Handle submit of Transfer Form
-function handleTransferSubmit(e) {
-  e.preventDefault();
+// Handle Transfer Actions (Pase / Préstamo)
+function handleTransferAction(condicionPase) {
+  if (!elements.formTransfer.reportValidity()) return;
   
   if (!state.selectedPlayer) {
     showToast('Por favor selecciona un jugador primero', 'error');
@@ -697,11 +706,21 @@ function handleTransferSubmit(e) {
   
   const teamId = team.id;
   const teamName = team.nombre;
-  
   const yearVal = new Date().getFullYear();
   const category = document.getElementById('transfer-category').value;
   
-  // Create pending action object
+  // Find current/owner team from player's latest record
+  const playerHistory = state.history.filter(h => h.jugador_ci === state.selectedPlayer.ci);
+  playerHistory.sort((a, b) => b['año'] - a['año']);
+  const latestRecord = playerHistory[0] || null;
+  const currentTeamId = latestRecord ? latestRecord.equipo_id : null;
+  const currentTeamName = latestRecord ? (state.teams.find(t => t.id === latestRecord.equipo_id)?.nombre || `Club ID: ${latestRecord.equipo_id}`) : 'Ninguno';
+  
+  if (condicionPase === 'prestamo' && !currentTeamId) {
+    showToast('No se puede registrar un préstamo para un jugador sin club anterior.', 'error');
+    return;
+  }
+  
   state.pendingAction = {
     type: 'transfer',
     playerCi: state.selectedPlayer.ci,
@@ -709,11 +728,14 @@ function handleTransferSubmit(e) {
     teamId: teamId,
     teamName: teamName,
     year: yearVal,
-    category: category
+    category: category,
+    condicionPase: condicionPase,
+    equipoPropietarioId: condicionPase === 'prestamo' ? currentTeamId : null,
+    ownerTeamName: currentTeamName
   };
   
-  // Update modal text
-  elements.confirmSummaryText.innerHTML = `El jugador <strong>${state.selectedPlayer.nombres} ${state.selectedPlayer.apellidos}</strong> perteneció al equipo <strong>${teamName}</strong> en el año <strong>${yearVal}</strong> bajo la categoría <strong>${category}</strong>.`;
+  const labelText = condicionPase === 'prestamo' ? `PRÉSTAMO (propietario: ${currentTeamName})` : 'PASE DEFINITIVO';
+  elements.confirmSummaryText.innerHTML = `El jugador <strong>${state.selectedPlayer.nombres} ${state.selectedPlayer.apellidos}</strong> será transferido al equipo <strong>${teamName}</strong> en el año <strong>${yearVal}</strong> bajo la categoría <strong>${category}</strong> como <strong>${labelText}</strong>.`;
   
   showConfirmModal();
 }
@@ -807,7 +829,9 @@ async function executePendingAction() {
           jugador_ci: action.playerCi,
           equipo_id: action.teamId,
           "año": action.year,
-          categoria_jugador: action.category
+          categoria_jugador: action.category,
+          condicion_pase: action.condicionPase,
+          equipo_propietario_id: action.equipoPropietarioId
         }, {
           onConflict: 'jugador_ci,año'
         })
@@ -891,17 +915,19 @@ async function executePendingAction() {
       // Auto-select the newly created player in search profile
       selectPlayer(newPlayer);
     } else if (action.type === 'roster_renewal') {
-      // Bulk Upsert in historial_participacion
-      const upsertRows = action.players.map(p => ({
+      // Bulk Insert in historial_participacion
+      const insertRows = action.players.map(p => ({
         jugador_ci: p.ci,
-        equipo_id: action.teamId,
+        equipo_id: p.condicionPase === 'prestamo' ? p.destTeamId : action.teamId,
         "año": action.year,
-        categoria_jugador: p.category
+        categoria_jugador: p.category,
+        condicion_pase: p.condicionPase,
+        equipo_propietario_id: p.condicionPase === 'prestamo' ? action.teamId : null
       }));
       
       const { data, error } = await supabase
         .from('historial_participacion')
-        .upsert(upsertRows, { onConflict: 'jugador_ci,año' })
+        .insert(insertRows)
         .select();
         
       if (error) throw error;
@@ -932,8 +958,8 @@ async function executePendingAction() {
   }
 }
 
-// Handle Roster Search
-function handleRosterSearch() {
+// Handle Roster Search with Live Return Query
+async function handleRosterSearch() {
   const selectedTeamName = elements.rosterTeamInput.value.trim();
   const team = state.teams.find(t => t.nombre.toLowerCase() === selectedTeamName.toLowerCase());
   
@@ -946,93 +972,140 @@ function handleRosterSearch() {
   elements.rosterSelectedTeamName.textContent = team.nombre;
   elements.rosterSelectedTeamName.dataset.teamId = team.id;
   
-  // Group all history by player CI to find their absolute latest participation record in the entire database
-  const playerAbsoluteLatestRecord = {};
-  state.history.forEach(rec => {
-    const existing = playerAbsoluteLatestRecord[rec.jugador_ci];
-    if (!existing || rec['año'] > existing['año']) {
-      playerAbsoluteLatestRecord[rec.jugador_ci] = rec;
-    }
-  });
+  const targetYear = new Date().getFullYear();
+  const previousYear = targetYear - 1;
   
-  // Construct list of players whose absolute latest record corresponds to this team
-  const rosterPlayersList = [];
-  for (const ci in playerAbsoluteLatestRecord) {
-    const latestRec = playerAbsoluteLatestRecord[ci];
-    if (latestRec.equipo_id === team.id) {
-      const player = state.players.find(p => p.ci === ci);
-      if (player) {
-        rosterPlayersList.push({
-          player: player,
-          latestRecord: latestRec
-        });
-      }
-    }
-  }
-  
-  // Sort alphabetically by full name (nombres, apellidos) to match paper list format
-  rosterPlayersList.sort((a, b) => {
-    const nameA = `${a.player.nombres || ''} ${a.player.apellidos || ''}`.trim().toLowerCase();
-    const nameB = `${b.player.nombres || ''} ${b.player.apellidos || ''}`.trim().toLowerCase();
-    return nameA.localeCompare(nameB);
-  });
-  
-  // Render table rows
-  elements.rosterTableBody.innerHTML = '';
-  
-  if (rosterPlayersList.length === 0) {
-    elements.rosterTableBody.innerHTML = `
-      <tr>
-        <td colspan="6" class="no-suggestions" style="text-align: center; padding: 2rem;">
-          No se encontraron jugadores históricos para este club en la base de datos local.
-        </td>
-      </tr>
-    `;
-    elements.rosterPlaceholder.classList.add('hidden');
-    elements.rosterResultsContainer.classList.remove('hidden');
-    return;
-  }
-  
-  rosterPlayersList.forEach(item => {
-    const p = item.player;
-    const rec = item.latestRecord;
-    const isTemp = p.ci.startsWith('TEMP-');
-    const photoUrl = isTemp ? DEFAULT_PHOTO : `${SUPABASE_URL}/storage/v1/object/public/fotos_jugadores/${p.ci}.jpg`;
-    
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td style="text-align: center;">
-        <input type="checkbox" class="roster-cb" data-ci="${p.ci}">
+  // Display loading message in the table body
+  elements.rosterTableBody.innerHTML = `
+    <tr>
+      <td colspan="8" class="no-suggestions" style="text-align: center; padding: 2rem;">
+        Cargando nómina de la gestión anterior (${previousYear})...
       </td>
-      <td style="text-align: center;">
-        <img src="${photoUrl}" class="roster-player-photo" width="32" height="32" onerror="this.onerror=null; this.src='${DEFAULT_PHOTO}'">
-      </td>
-      <td>
-        <span class="roster-player-name">${formatFullName(p)}</span>
-      </td>
-      <td>
-        <span>${isTemp ? 'Temporal' : p.ci}</span>
-      </td>
-      <td style="text-align: center; font-weight: 700; color: var(--color-primary);">
-        ${rec['año']}
-      </td>
-      <td>
-        <select class="roster-cat-select" data-ci="${p.ci}">
-          <option value="natural" ${rec.categoria_jugador === 'natural' ? 'selected' : ''}>Natural</option>
-          <option value="refuerzo" ${rec.categoria_jugador === 'refuerzo' ? 'selected' : ''}>Refuerzo</option>
-          <option value="juvenil" ${rec.categoria_jugador === 'juvenil' ? 'selected' : ''}>Juvenil</option>
-        </select>
-      </td>
-    `;
-    elements.rosterTableBody.appendChild(tr);
-  });
+    </tr>
+  `;
   
-  // Reset Select All checkbox to unchecked by default
-  elements.rosterSelectAll.checked = false;
-  
-  // Switch Views
+  // Switch Views to show loading state
   elements.rosterPlaceholder.classList.add('hidden');
   elements.rosterResultsContainer.classList.remove('hidden');
+  
+  try {
+    // 1. Automatic Return Query: Fetch previous year records
+    // Conditions: (equipo_id = X AND condicion_pase != 'prestamo') OR (equipo_id = X AND condicion_pase IS NULL) OR equipo_propietario_id = X
+    const { data: records, error } = await supabase
+      .from('historial_participacion')
+      .select('*, jugadores(*)')
+      .eq('año', previousYear)
+      .or(`and(equipo_id.eq.${team.id},condicion_pase.neq.prestamo),and(equipo_id.eq.${team.id},condicion_pase.is.null),equipo_propietario_id.eq.${team.id}`);
+      
+    if (error) throw error;
+    
+    // Construct list of players
+    const rosterPlayersList = [];
+    records.forEach(rec => {
+      const p = rec.jugadores;
+      if (p) {
+        rosterPlayersList.push({
+          player: p,
+          latestRecord: rec
+        });
+      }
+    });
+    
+    // Sort alphabetically by full name
+    rosterPlayersList.sort((a, b) => {
+      const nameA = `${a.player.nombres || ''} ${a.player.apellidos || ''}`.trim().toLowerCase();
+      const nameB = `${b.player.nombres || ''} ${b.player.apellidos || ''}`.trim().toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+    
+    // Clear and render table rows
+    elements.rosterTableBody.innerHTML = '';
+    
+    if (rosterPlayersList.length === 0) {
+      elements.rosterTableBody.innerHTML = `
+        <tr>
+          <td colspan="8" class="no-suggestions" style="text-align: center; padding: 2rem;">
+            No se encontraron jugadores disponibles para retorno automático desde la gestión ${previousYear}.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+    
+    // Build options for destination teams (loans)
+    let teamOptions = `<option value="" disabled selected>Club Destino...</option>`;
+    state.teams.forEach(t => {
+      if (t.id !== team.id) {
+        teamOptions += `<option value="${t.id}">${t.nombre}</option>`;
+      }
+    });
+    
+    rosterPlayersList.forEach(item => {
+      const p = item.player;
+      const rec = item.latestRecord;
+      const isTemp = p.ci.startsWith('TEMP-');
+      const photoUrl = isTemp ? DEFAULT_PHOTO : `${SUPABASE_URL}/storage/v1/object/public/fotos_jugadores/${p.ci}.jpg`;
+      
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="text-align: center;">
+          <input type="checkbox" class="roster-cb" data-ci="${p.ci}">
+        </td>
+        <td style="text-align: center;">
+          <img src="${photoUrl}" class="roster-player-photo" width="32" height="32" onerror="this.onerror=null; this.src='${DEFAULT_PHOTO}'">
+        </td>
+        <td>
+          <span class="roster-player-name">${formatFullName(p)}</span>
+        </td>
+        <td>
+          <span>${isTemp ? 'Temporal' : p.ci}</span>
+        </td>
+        <td style="text-align: center; font-weight: 700; color: var(--color-primary);">
+          ${rec['año']}
+        </td>
+        <td>
+          <select class="roster-cat-select" data-ci="${p.ci}">
+            <option value="natural" ${rec.categoria_jugador === 'natural' ? 'selected' : ''}>Natural</option>
+            <option value="refuerzo" ${rec.categoria_jugador === 'refuerzo' ? 'selected' : ''}>Refuerzo</option>
+            <option value="juvenil" ${rec.categoria_jugador === 'juvenil' ? 'selected' : ''}>Juvenil</option>
+          </select>
+        </td>
+        <td>
+          <select class="roster-cond-select" data-ci="${p.ci}">
+            <option value="oficial" selected>Oficial</option>
+            <option value="prestamo">Préstamo</option>
+          </select>
+        </td>
+        <td>
+          <select class="roster-dest-select hidden" data-ci="${p.ci}" style="max-width: 150px;">
+            ${teamOptions}
+          </select>
+        </td>
+      `;
+      
+      // Connect dynamic show/hide event for loan destination select
+      const condSelect = tr.querySelector('.roster-cond-select');
+      const destSelect = tr.querySelector('.roster-dest-select');
+      
+      condSelect.addEventListener('change', (e) => {
+        if (e.target.value === 'prestamo') {
+          destSelect.classList.remove('hidden');
+        } else {
+          destSelect.classList.add('hidden');
+          destSelect.value = '';
+        }
+      });
+      
+      elements.rosterTableBody.appendChild(tr);
+    });
+    
+    // Reset Select All checkbox to unchecked by default
+    elements.rosterSelectAll.checked = false;
+    
+  } catch (err) {
+    console.error("Error loading roster:", err);
+    showToast(`Error al cargar la nómina: ${err.message}`, 'error');
+  }
 }
 
 // Handle Roster Save
@@ -1052,20 +1125,41 @@ function handleRosterSave(targetYear) {
   }
   
   const playersToSave = [];
+  let validationError = false;
+  
   checkedBoxes.forEach(cb => {
+    if (validationError) return;
+    
     const ci = cb.dataset.ci;
     const player = state.players.find(p => p.ci === ci);
+    
     const catSelect = elements.rosterTableBody.querySelector(`select.roster-cat-select[data-ci="${ci}"]`);
     const category = catSelect ? catSelect.value : 'natural';
+    
+    const condSelect = elements.rosterTableBody.querySelector(`select.roster-cond-select[data-ci="${ci}"]`);
+    const condicionPase = condSelect ? condSelect.value : 'oficial';
+    
+    const destSelect = elements.rosterTableBody.querySelector(`select.roster-dest-select[data-ci="${ci}"]`);
+    const destTeamId = destSelect && condicionPase === 'prestamo' ? parseInt(destSelect.value) : null;
+    
+    if (condicionPase === 'prestamo' && (isNaN(destTeamId) || !destTeamId)) {
+      showToast(`Por favor selecciona un club de destino para el jugador ${formatFullName(player)}.`, 'error');
+      validationError = true;
+      return;
+    }
     
     if (player) {
       playersToSave.push({
         ci: ci,
         fullName: formatFullName(player),
-        category: category
+        category: category,
+        condicionPase: condicionPase,
+        destTeamId: destTeamId
       });
     }
   });
+  
+  if (validationError) return;
   
   state.pendingAction = {
     type: 'roster_renewal',
