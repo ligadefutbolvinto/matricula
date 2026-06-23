@@ -634,7 +634,6 @@ function selectPlayer(player) {
   
   // Reset transfer form
   elements.formTransfer.reset();
-  document.getElementById('trans-2024').checked = true;
   
   // Reset tabs: activate history tab
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -699,7 +698,7 @@ function handleTransferSubmit(e) {
   const teamId = team.id;
   const teamName = team.nombre;
   
-  const yearVal = parseInt(document.querySelector('input[name="transfer-year"]:checked').value);
+  const yearVal = new Date().getFullYear();
   const category = document.getElementById('transfer-category').value;
   
   // Create pending action object
@@ -738,7 +737,7 @@ function handleNewPlayerSubmit(e) {
   
   const teamId = team.id;
   const teamName = team.nombre;
-  const yearVal = parseInt(document.querySelector('input[name="new-year"]:checked').value);
+  const yearVal = new Date().getFullYear();
   const category = document.getElementById('new-category').value;
   
   if (!ci) {
@@ -885,7 +884,6 @@ async function executePendingAction() {
       
       // Reset new player form
       elements.formNewPlayer.reset();
-      document.getElementById('new-y-2024').checked = true;
       
       showToast(`Nuevo jugador ${upperNombres} ${upperApellidos} creado y habilitado.`, 'success');
       hideConfirmModal();
@@ -1289,7 +1287,7 @@ function selectCarnetPlayer(player) {
   
   // 6. QR Code value
   const qrValue = `https://kardex.ligadefutbolvinto.com/${player.ci}`;
-  const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrValue)}&color=0f172a&bgcolor=ffffff&qzone=1`;
+  const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrValue)}&color=0f172a&bgcolor=ffffff&qzone=1`;
   
   // 7. Photo Url
   const isTemp = player.ci.startsWith('TEMP-');
@@ -1298,8 +1296,12 @@ function selectCarnetPlayer(player) {
   // 8. Generate HTML for Anverso
   const anversoHtml = `
     <div class="carnet-front-header">
-      <div class="carnet-header-title">LIGA DE FUTBOL VINTO</div>
       <img src="/logo.png" class="carnet-header-logo" alt="" onerror="this.style.display='none'">
+      <div class="carnet-header-text-container">
+        <div class="carnet-header-title">LIGA DE FUTBOL VINTO</div>
+        <div class="carnet-header-subtitle">Fdo. 13 de Mayo de 1963</div>
+        <div class="carnet-header-subtitle">Personeria Juridica R. S. Nº 128155</div>
+      </div>
     </div>
     <div class="carnet-front-body">
       <!-- Foto del jugador a la izquierda -->
@@ -1325,9 +1327,12 @@ function selectCarnetPlayer(player) {
             <span class="carnet-detail-label">F. Emisión</span>
             <span class="carnet-detail-value" style="font-size: 7.5pt; font-weight: normal;">${emissionDate}</span>
           </div>
-          <span class="carnet-category-badge">${categoryLabel}</span>
+          ${category !== 'natural' ? `<span class="carnet-category-badge">${categoryLabel}</span>` : ''}
         </div>
       </div>
+    </div>
+    <div class="carnet-front-footer">
+      VINTO - COCHABAMBA
     </div>
   `;
   
@@ -1341,11 +1346,13 @@ function selectCarnetPlayer(player) {
     <div class="carnet-back-signatures">
       <div class="carnet-sig-area">
         <div class="carnet-sig-line"></div>
-        <span class="carnet-sig-label">Firma Presidente</span>
+        <span class="carnet-sig-name">Enrique Uribe</span>
+        <span class="carnet-sig-label">Presidente</span>
       </div>
       <div class="carnet-sig-area">
         <div class="carnet-sig-line"></div>
-        <span class="carnet-sig-label">Firma Secretario</span>
+        <span class="carnet-sig-name">Marcelo Donaire</span>
+        <span class="carnet-sig-label">Srio. Matriculas</span>
       </div>
     </div>
   `;
@@ -1381,5 +1388,59 @@ function handlePrintCarnet() {
   window.print();
 }
 
-// Start Application
-initApp();
+// Start Application with Authentication Gating
+function checkAuth() {
+  const isAuthenticated = sessionStorage.getItem('vinto_auth') === 'true';
+  const appContainer = document.querySelector('.app-container');
+  const loginContainer = document.getElementById('login-container');
+  
+  if (isAuthenticated) {
+    if (loginContainer) loginContainer.classList.add('hidden');
+    if (appContainer) appContainer.classList.remove('hidden');
+    
+    // Set up logout button event listener
+    const btnLogout = document.getElementById('btn-logout');
+    if (btnLogout) {
+      btnLogout.addEventListener('click', () => {
+        sessionStorage.removeItem('vinto_auth');
+        window.location.reload();
+      });
+    }
+    
+    initApp();
+  } else {
+    if (loginContainer) loginContainer.classList.remove('hidden');
+    if (appContainer) appContainer.classList.add('hidden');
+    
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) {
+      loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value.trim();
+        const password = document.getElementById('login-password').value;
+        const errorMsg = document.getElementById('login-error');
+        
+        if (email === 'matricula@ligadefutbolvinto.com' && password === 'matricula2026') {
+          sessionStorage.setItem('vinto_auth', 'true');
+          loginContainer.classList.add('hidden');
+          appContainer.classList.remove('hidden');
+          
+          // Set up logout button event listener
+          const btnLogout = document.getElementById('btn-logout');
+          if (btnLogout) {
+            btnLogout.addEventListener('click', () => {
+              sessionStorage.removeItem('vinto_auth');
+              window.location.reload();
+            });
+          }
+          
+          initApp();
+        } else {
+          if (errorMsg) errorMsg.classList.remove('hidden');
+        }
+      });
+    }
+  }
+}
+
+checkAuth();

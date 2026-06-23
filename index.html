@@ -10,12 +10,32 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
-<body>
-  <!-- Background Elements -->
-  <div class="bg-glow bg-glow-1"></div>
-  <div class="bg-glow bg-glow-2"></div>
+  <!-- Login Container -->
+  <div id="login-container" class="login-overlay">
+    <div class="login-card glass-card">
+      <div class="login-logo-area">
+        <img src="/logo.png" alt="Logo Liga de Fútbol Vinto" class="login-logo-img" onerror="this.style.display='none'; document.getElementById('login-logo-fallback').classList.remove('hidden')">
+        <div id="login-logo-fallback" class="badge-icon hidden">⚽</div>
+      </div>
+      <h2>Acceso Protegido</h2>
+      <p class="login-desc">Ingresa tus credenciales para administrar la base de datos de habilitaciones.</p>
+      
+      <form id="login-form" class="sport-form">
+        <div class="form-group">
+          <label for="login-email">Usuario / Correo</label>
+          <input type="email" id="login-email" required placeholder="correo@ejemplo.com" autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label for="login-password">Contraseña</label>
+          <input type="password" id="login-password" required placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <div id="login-error" class="login-error-msg hidden">Credenciales incorrectas. Intenta de nuevo.</div>
+        <button type="submit" id="btn-login-submit" class="btn btn-primary btn-full">Iniciar Sesión</button>
+      </form>
+    </div>
+  </div>
 
-  <div class="app-container">
+  <div class="app-container hidden">
     <!-- Header -->
     <header class="app-header">
       <div class="logo-area">
@@ -46,6 +66,9 @@
         <button id="btn-sync" class="btn btn-secondary btn-icon" title="Sincronizar base de datos local">
           <svg class="icon-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
           Sincronizar
+        </button>
+        <button id="btn-logout" class="btn btn-danger btn-icon" title="Cerrar Sesión">
+          🚪 Salir
         </button>
       </div>
     </header>
@@ -118,16 +141,7 @@
                 <input type="text" id="transfer-team-input" list="teams-list" placeholder="Escribe para buscar club (Ej: Real Vinto)..." required autocomplete="off">
               </div>
 
-              <div class="form-group">
-                <label>Gestión / Año Deportivo</label>
-                <div class="year-selector">
-                  <input type="radio" name="transfer-year" id="trans-2024" value="2024" checked>
-                  <label for="trans-2024" class="year-btn">2024</label>
 
-                  <input type="radio" name="transfer-year" id="trans-2025" value="2025">
-                  <label for="trans-2025" class="year-btn">2025</label>
-                </div>
-              </div>
 
               <div class="form-group">
                 <label for="transfer-category">Categoría del Jugador</label>
@@ -191,26 +205,13 @@
               <input type="text" id="new-team-input" list="teams-list" placeholder="Escribe para buscar club (Ej: Bush Vinto)..." required autocomplete="off">
             </div>
 
-            <div class="form-row">
-              <div class="form-group">
-                <label>Gestión</label>
-                <div class="year-selector">
-                  <input type="radio" name="new-year" id="new-y-2024" value="2024" checked>
-                  <label for="new-y-2024" class="year-btn">2024</label>
-
-                  <input type="radio" name="new-year" id="new-y-2025" value="2025">
-                  <label for="new-y-2025" class="year-btn">2025</label>
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label for="new-category">Categoría <span class="required">*</span></label>
-                <select id="new-category" required>
-                  <option value="natural" selected>Natural</option>
-                  <option value="refuerzo">Refuerzo</option>
-                  <option value="juvenil">Juvenil</option>
-                </select>
-              </div>
+            <div class="form-group">
+              <label for="new-category">Categoría <span class="required">*</span></label>
+              <select id="new-category" required>
+                <option value="natural" selected>Natural</option>
+                <option value="refuerzo">Refuerzo</option>
+                <option value="juvenil">Juvenil</option>
+              </select>
             </div>
 
             <button type="submit" class="btn btn-accent btn-full">
