@@ -958,7 +958,7 @@ async function executePendingAction() {
   }
 }
 
-// Handle Roster Search with Live Return Query
+// Handle Roster Search with Local History Ownership Logic (covering all past years)
 async function handleRosterSearch() {
   const selectedTeamName = elements.rosterTeamInput.value.trim();
   const team = state.teams.find(t => t.nombre.toLowerCase() === selectedTeamName.toLowerCase());
@@ -973,43 +973,39 @@ async function handleRosterSearch() {
   elements.rosterSelectedTeamName.dataset.teamId = team.id;
   
   const targetYear = new Date().getFullYear();
-  const previousYear = targetYear - 1;
-  
-  // Display loading message in the table body
-  elements.rosterTableBody.innerHTML = `
-    <tr>
-      <td colspan="8" class="no-suggestions" style="text-align: center; padding: 2rem;">
-        Cargando nómina de la gestión anterior (${previousYear})...
-      </td>
-    </tr>
-  `;
   
   // Switch Views to show loading state
   elements.rosterPlaceholder.classList.add('hidden');
   elements.rosterResultsContainer.classList.remove('hidden');
   
   try {
-    // 1. Automatic Return Query: Fetch previous year records
-    // Conditions: (equipo_id = X AND condicion_pase != 'prestamo') OR (equipo_id = X AND condicion_pase IS NULL) OR equipo_propietario_id = X
-    const { data: records, error } = await supabase
-      .from('historial_participacion')
-      .select('*, jugadores(*)')
-      .eq('año', previousYear)
-      .or(`and(equipo_id.eq.${team.id},condicion_pase.neq.prestamo),and(equipo_id.eq.${team.id},condicion_pase.is.null),equipo_propietario_id.eq.${team.id}`);
-      
-    if (error) throw error;
-    
-    // Construct list of players
-    const rosterPlayersList = [];
-    records.forEach(rec => {
-      const p = rec.jugadores;
-      if (p) {
-        rosterPlayersList.push({
-          player: p,
-          latestRecord: rec
-        });
+    // 1. Group all history by player CI to find their absolute latest participation record in the entire database
+    const playerAbsoluteLatestRecord = {};
+    state.history.forEach(rec => {
+      const existing = playerAbsoluteLatestRecord[rec.jugador_ci];
+      if (!existing || rec['año'] > existing['año']) {
+        playerAbsoluteLatestRecord[rec.jugador_ci] = rec;
       }
     });
+    
+    // 2. Filter to find players whose absolute latest record belongs to this team (either directly owned or returning from loan)
+    const rosterPlayersList = [];
+    for (const ci in playerAbsoluteLatestRecord) {
+      const latestRec = playerAbsoluteLatestRecord[ci];
+      
+      const isRegularPlayer = (latestRec.equipo_id === team.id && latestRec.condicion_pase !== 'prestamo');
+      const isLoanedOutPlayer = (latestRec.equipo_propietario_id === team.id);
+      
+      if (isRegularPlayer || isLoanedOutPlayer) {
+        const player = state.players.find(p => p.ci === ci);
+        if (player) {
+          rosterPlayersList.push({
+            player: player,
+            latestRecord: latestRec
+          });
+        }
+      }
+    }
     
     // Sort alphabetically by full name
     rosterPlayersList.sort((a, b) => {
@@ -1025,7 +1021,7 @@ async function handleRosterSearch() {
       elements.rosterTableBody.innerHTML = `
         <tr>
           <td colspan="8" class="no-suggestions" style="text-align: center; padding: 2rem;">
-            No se encontraron jugadores disponibles para retorno automático desde la gestión ${previousYear}.
+            No se encontraron jugadores históricos en propiedad de este club en la base de datos.
           </td>
         </tr>
       `;
@@ -1045,39 +1041,41 @@ async function handleRosterSearch() {
       const rec = item.latestRecord;
       const isTemp = p.ci.startsWith('TEMP-');
       const photoUrl = isTemp ? DEFAULT_PHOTO : `${SUPABASE_URL}/storage/v1/object/public/fotos_jugadores/${p.ci}.jpg`;
+      const isAlreadyActive = rec['año'] >= targetYear;
       
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td style="text-align: center;">
-          <input type="checkbox" class="roster-cb" data-ci="${p.ci}">
+          <input type="checkbox" class="roster-cb" data-ci="${p.ci}" ${isAlreadyActive ? 'disabled checked' : ''}>
         </td>
         <td style="text-align: center;">
           <img src="${photoUrl}" class="roster-player-photo" width="32" height="32" onerror="this.onerror=null; this.src='${DEFAULT_PHOTO}'">
         </td>
         <td>
-          <span class="roster-player-name">${formatFullName(p)}</span>
+          <span class="roster-player-name" style="${isAlreadyActive ? 'opacity: 0.7;' : ''}">${formatFullName(p)}</span>
+          ${isAlreadyActive ? '<span class="badge" style="background-color: #10b981; color: white; font-size: 6.5pt; padding: 1px 4px; margin-left: 5px; border-radius: 4px;">Activo</span>' : ''}
         </td>
         <td>
-          <span>${isTemp ? 'Temporal' : p.ci}</span>
+          <span style="${isAlreadyActive ? 'opacity: 0.7;' : ''}">${isTemp ? 'Temporal' : p.ci}</span>
         </td>
-        <td style="text-align: center; font-weight: 700; color: var(--color-primary);">
+        <td style="text-align: center; font-weight: 700; color: ${isAlreadyActive ? '#10b981' : 'var(--color-primary)'};">
           ${rec['año']}
         </td>
         <td>
-          <select class="roster-cat-select" data-ci="${p.ci}">
+          <select class="roster-cat-select" data-ci="${p.ci}" ${isAlreadyActive ? 'disabled' : ''}>
             <option value="natural" ${rec.categoria_jugador === 'natural' ? 'selected' : ''}>Natural</option>
             <option value="refuerzo" ${rec.categoria_jugador === 'refuerzo' ? 'selected' : ''}>Refuerzo</option>
             <option value="juvenil" ${rec.categoria_jugador === 'juvenil' ? 'selected' : ''}>Juvenil</option>
           </select>
         </td>
         <td>
-          <select class="roster-cond-select" data-ci="${p.ci}">
-            <option value="oficial" selected>Oficial</option>
-            <option value="prestamo">Préstamo</option>
+          <select class="roster-cond-select" data-ci="${p.ci}" ${isAlreadyActive ? 'disabled' : ''}>
+            <option value="oficial" ${rec.condicion_pase !== 'prestamo' ? 'selected' : ''}>Oficial</option>
+            <option value="prestamo" ${rec.condicion_pase === 'prestamo' ? 'selected' : ''}>Préstamo</option>
           </select>
         </td>
         <td>
-          <select class="roster-dest-select hidden" data-ci="${p.ci}" style="max-width: 150px;">
+          <select class="roster-dest-select ${rec.condicion_pase === 'prestamo' ? '' : 'hidden'}" data-ci="${p.ci}" style="max-width: 150px;" ${isAlreadyActive ? 'disabled' : ''}>
             ${teamOptions}
           </select>
         </td>
