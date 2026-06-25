@@ -1234,7 +1234,7 @@ function handleCarnetSearchInput() {
     elements.searchCarnetSuggestions.appendChild(item);
   });
   
-  elements.searchCarnetSuggestions.classList.add('hidden');
+  elements.searchCarnetSuggestions.classList.remove('hidden');
 }
 
 // Clear Carnet Search
@@ -1310,7 +1310,7 @@ function performFullCarnetSearch() {
     elements.searchCarnetSuggestions.appendChild(item);
   });
   
-  elements.searchCarnetSuggestions.classList.add('hidden');
+  elements.searchCarnetSuggestions.classList.remove('hidden');
 }
 
 // Select Player and Render Carnet Preview
