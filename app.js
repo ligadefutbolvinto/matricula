@@ -382,9 +382,9 @@ function setupEventListeners() {
     }
   });
 
-  // Roster Select All Checkbox
+  // Roster Select All Checkbox (Only targets enabled/eligible players)
   elements.rosterSelectAll.addEventListener('change', (e) => {
-    const checkboxes = elements.rosterTableBody.querySelectorAll('input[type="checkbox"]');
+    const checkboxes = elements.rosterTableBody.querySelectorAll('input.roster-cb:not(:disabled)');
     checkboxes.forEach(cb => {
       cb.checked = e.target.checked;
     });
@@ -1059,8 +1059,11 @@ async function handleRosterSearch() {
           <img src="${photoUrl}" class="roster-player-photo" width="32" height="32" onerror="this.onerror=null; this.src='${DEFAULT_PHOTO}'">
         </td>
         <td>
-          <span class="roster-player-name" style="${isAlreadyActive ? 'opacity: 0.7;' : ''}">${formatFullName(p)}</span>
-          ${isAlreadyActive ? '<span class="badge" style="background-color: #10b981; color: white; font-size: 6.5pt; padding: 1px 4px; margin-left: 5px; border-radius: 4px;">Activo</span>' : ''}
+          <div class="roster-player-name-container" style="${isAlreadyActive ? 'opacity: 0.7;' : ''}">
+            <span class="roster-player-nombres">${p.nombres}</span>
+            <span class="roster-player-apellidos">${p.apellidos}</span>
+            ${isAlreadyActive ? '<span class="badge" style="background-color: #10b981; color: white; font-size: 6.5pt; padding: 1px 4px; margin-left: 8px; border-radius: 4px; font-weight: bold; opacity: 1 !important; display: inline-block;">Activo</span>' : ''}
+          </div>
         </td>
         <td>
           <span style="${isAlreadyActive ? 'opacity: 0.7;' : ''}">${isTemp ? 'Temporal' : p.ci}</span>
@@ -1122,7 +1125,7 @@ function handleRosterSave(targetYear) {
     return;
   }
   
-  const checkedBoxes = elements.rosterTableBody.querySelectorAll('input.roster-cb:checked');
+  const checkedBoxes = elements.rosterTableBody.querySelectorAll('input.roster-cb:checked:not(:disabled)');
   
   if (checkedBoxes.length === 0) {
     showToast('Por favor selecciona al menos un jugador para renovar su nómina.', 'warning');

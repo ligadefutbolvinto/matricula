@@ -1118,9 +1118,26 @@ body {
   border-color: var(--color-primary);
 }
 
-.roster-player-name {
-  font-weight: 600;
+.roster-player-name-container {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  flex-wrap: wrap;
+}
+
+.roster-player-nombres {
+  font-weight: 700;
   color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+}
+
+.roster-player-apellidos {
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  margin-left: 0.75rem; /* Generoso espacio horizontal de 12px */
+  letter-spacing: 0.2px;
 }
 
 .roster-player-photo {
