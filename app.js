@@ -958,7 +958,7 @@ async function executePendingAction() {
   }
 }
 
-// Handle Roster Search with Local History Ownership Logic (covering all past years)
+// Handle Roster Search using Supabase SQL RPC (Stored Procedure) for high-performance DISTINCT ON queries
 async function handleRosterSearch() {
   const selectedTeamName = elements.rosterTeamInput.value.trim();
   const team = state.teams.find(t => t.nombre.toLowerCase() === selectedTeamName.toLowerCase());
@@ -974,38 +974,45 @@ async function handleRosterSearch() {
   
   const targetYear = new Date().getFullYear();
   
+  // Display loading message in the table body
+  elements.rosterTableBody.innerHTML = `
+    <tr>
+      <td colspan="8" class="no-suggestions" style="text-align: center; padding: 2rem;">
+        Cargando nómina histórica desde la base de datos...
+      </td>
+    </tr>
+  `;
+  
   // Switch Views to show loading state
   elements.rosterPlaceholder.classList.add('hidden');
   elements.rosterResultsContainer.classList.remove('hidden');
   
   try {
-    // 1. Group all history by player CI to find their absolute latest participation record in the entire database
-    const playerAbsoluteLatestRecord = {};
-    state.history.forEach(rec => {
-      const existing = playerAbsoluteLatestRecord[rec.jugador_ci];
-      if (!existing || rec['año'] > existing['año']) {
-        playerAbsoluteLatestRecord[rec.jugador_ci] = rec;
-      }
-    });
+    // 1. Call the Supabase Stored Procedure (RPC) to retrieve the unique latest records for this club
+    const { data: records, error } = await supabase
+      .rpc('obtener_nomina_historica', { target_equipo_id: team.id });
+      
+    if (error) throw error;
     
-    // 2. Filter to find players whose absolute latest record belongs to this team (either directly owned or returning from loan)
+    // 2. Map flat RPC rows to the rosterPlayersList structure expected by the rendering pipeline
     const rosterPlayersList = [];
-    for (const ci in playerAbsoluteLatestRecord) {
-      const latestRec = playerAbsoluteLatestRecord[ci];
-      
-      const isRegularPlayer = (latestRec.equipo_id === team.id && latestRec.condicion_pase !== 'prestamo');
-      const isLoanedOutPlayer = (latestRec.equipo_propietario_id === team.id);
-      
-      if (isRegularPlayer || isLoanedOutPlayer) {
-        const player = state.players.find(p => p.ci === ci);
-        if (player) {
-          rosterPlayersList.push({
-            player: player,
-            latestRecord: latestRec
-          });
+    records.forEach(row => {
+      rosterPlayersList.push({
+        player: {
+          ci: row.ci,
+          nombres: row.nombres,
+          apellidos: row.apellidos,
+          fecha_nacimiento: row.fecha_nacimiento
+        },
+        latestRecord: {
+          año: row.año,
+          categoria_jugador: row.categoria_jugador,
+          condicion_pase: row.condicion_pase,
+          equipo_id: row.equipo_id,
+          equipo_propietario_id: row.equipo_propietario_id
         }
-      }
-    }
+      });
+    });
     
     // Sort alphabetically by full name
     rosterPlayersList.sort((a, b) => {
@@ -1014,7 +1021,7 @@ async function handleRosterSearch() {
       return nameA.localeCompare(nameB);
     });
     
-    // Clear and render table rows
+    // Clear table rows before rendering
     elements.rosterTableBody.innerHTML = '';
     
     if (rosterPlayersList.length === 0) {
