@@ -69,7 +69,31 @@ const elements = {
   carnetAnverso: document.getElementById('carnet-anverso'),
   carnetReverso: document.getElementById('carnet-reverso'),
   btnPrintCarnet: document.getElementById('btn-print-carnet'),
-  printSection: document.getElementById('print-section')
+  printSection: document.getElementById('print-section'),
+  
+  // Advanced Section Elements
+  sectionAdvanced: document.getElementById('section-advanced'),
+  searchAdvancedPlayer: document.getElementById('search-advanced-player'),
+  btnClearAdvancedSearch: document.getElementById('btn-clear-advanced-search'),
+  btnAdvancedSearchTrigger: document.getElementById('btn-advanced-search-trigger'),
+  searchAdvancedSuggestions: document.getElementById('search-advanced-suggestions'),
+  advancedProfileContainer: document.getElementById('advanced-profile-container'),
+  advancedPlaceholder: document.getElementById('advanced-placeholder'),
+  formAdvancedEdit: document.getElementById('form-advanced-edit'),
+  advancedNombres: document.getElementById('advanced-nombres'),
+  advancedApellidos: document.getElementById('advanced-apellidos'),
+  advancedCI: document.getElementById('advanced-ci'),
+  advancedBirthdate: document.getElementById('advanced-birthdate'),
+  btnAdvancedSave: document.getElementById('btn-advanced-save'),
+  btnAdvancedDelete: document.getElementById('btn-advanced-delete'),
+  advancedConfirmModal: document.getElementById('advanced-confirm-modal'),
+  advancedModalTitle: document.getElementById('advanced-modal-title'),
+  advancedModalWarningText: document.getElementById('advanced-modal-warning-text'),
+  advancedModalSummaryText: document.getElementById('advanced-modal-summary-text'),
+  advancedConfirmPassword: document.getElementById('advanced-confirm-password'),
+  advancedConfirmPasswordError: document.getElementById('advanced-confirm-password-error'),
+  btnAdvancedModalCancel: document.getElementById('btn-advanced-modal-cancel'),
+  btnAdvancedModalConfirm: document.getElementById('btn-advanced-modal-confirm')
 };
 
 // Helper: Normalize strings (removes accents, lowercase)
@@ -454,6 +478,58 @@ function setupEventListeners() {
 
   // Print Carnet Action
   elements.btnPrintCarnet.addEventListener('click', handlePrintCarnet);
+
+  // Advanced Search Input
+  elements.searchAdvancedPlayer.addEventListener('input', () => {
+    handleAdvancedSearchInput();
+    if (elements.searchAdvancedPlayer.value.trim().length > 0) {
+      elements.btnClearAdvancedSearch.classList.remove('hidden');
+    } else {
+      elements.btnClearAdvancedSearch.classList.add('hidden');
+    }
+  });
+  elements.searchAdvancedPlayer.addEventListener('focus', () => {
+    if (elements.searchAdvancedPlayer.value.trim().length > 0) {
+      elements.searchAdvancedSuggestions.classList.remove('hidden');
+    }
+  });
+
+  // Clear Advanced Search
+  elements.btnClearAdvancedSearch.addEventListener('click', clearAdvancedSearch);
+
+  // Search Advanced Trigger
+  elements.btnAdvancedSearchTrigger.addEventListener('click', performFullAdvancedSearch);
+  elements.searchAdvancedPlayer.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      performFullAdvancedSearch();
+    }
+  });
+
+  // Close advanced suggestions when clicking outside
+  document.addEventListener('click', (e) => {
+    if (
+      elements.searchAdvancedPlayer && 
+      elements.searchAdvancedSuggestions && 
+      elements.btnAdvancedSearchTrigger && 
+      elements.btnClearAdvancedSearch &&
+      !elements.searchAdvancedPlayer.contains(e.target) && 
+      !elements.searchAdvancedSuggestions.contains(e.target) && 
+      !elements.btnAdvancedSearchTrigger.contains(e.target) &&
+      !elements.btnClearAdvancedSearch.contains(e.target)
+    ) {
+      elements.searchAdvancedSuggestions.classList.add('hidden');
+    }
+  });
+
+  // Advanced Form Submit (Edit)
+  elements.formAdvancedEdit.addEventListener('submit', handleAdvancedEditSubmit);
+
+  // Advanced Form Delete Click
+  elements.btnAdvancedDelete.addEventListener('click', handleAdvancedDeleteClick);
+
+  // Advanced Modal Actions
+  elements.btnAdvancedModalCancel.addEventListener('click', hideAdvancedConfirmModal);
+  elements.btnAdvancedModalConfirm.addEventListener('click', executePendingAdvancedAction);
 }
 
 // Handle Search Input and render fast suggestions
@@ -1490,7 +1566,424 @@ function handlePrintCarnet() {
   window.print();
 }
 
+let selectedAdvancedPlayerObj = null;
+let pendingAdvancedAction = null;
+
+// Handle Advanced Search Input and render suggestions
+function handleAdvancedSearchInput() {
+  const rawQuery = elements.searchAdvancedPlayer.value.trim();
+  const query = normalizeString(rawQuery);
+  
+  if (query.length < 2) {
+    elements.searchAdvancedSuggestions.innerHTML = '';
+    elements.searchAdvancedSuggestions.classList.add('hidden');
+    
+    // Restore appropriate state card
+    if (selectedAdvancedPlayerObj) {
+      elements.advancedProfileContainer.classList.remove('hidden');
+      elements.advancedPlaceholder.classList.add('hidden');
+    } else {
+      elements.advancedProfileContainer.classList.add('hidden');
+      elements.advancedPlaceholder.classList.remove('hidden');
+    }
+    return;
+  }
+  
+  elements.advancedProfileContainer.classList.add('hidden');
+  elements.advancedPlaceholder.classList.add('hidden');
+  
+  // Search locally
+  const matches = state.players.filter(player => {
+    const nameMatch = normalizeString(player.nombres).includes(query);
+    const surnameMatch = normalizeString(player.apellidos).includes(query);
+    const ciMatch = player.ci.toLowerCase().includes(query);
+    return nameMatch || surnameMatch || ciMatch;
+  });
+  
+  elements.searchAdvancedSuggestions.innerHTML = '';
+  
+  if (matches.length === 0) {
+    elements.searchAdvancedSuggestions.innerHTML = `<div class="no-suggestions">No se encontraron jugadores</div>`;
+    elements.searchAdvancedSuggestions.classList.remove('hidden');
+    return;
+  }
+  
+  const topMatches = matches.slice(0, 25);
+  
+  topMatches.forEach((player) => {
+    const item = document.createElement('div');
+    item.className = 'suggestion-item';
+    item.dataset.ci = player.ci;
+    
+    const isTemp = player.ci.startsWith('TEMP-');
+    const badgeHtml = isTemp ? `<span class="badge badge-temp">Temp</span>` : `<span class="badge">CI: ${player.ci}</span>`;
+    const photoUrl = isTemp ? DEFAULT_PHOTO : `${SUPABASE_URL}/storage/v1/object/public/fotos_jugadores/${player.ci}.jpg`;
+    
+    const rawFullName = formatFullName(player);
+    const highlightedName = highlightText(rawFullName, rawQuery);
+    
+    item.innerHTML = `
+      <img src="${photoUrl}" class="suggestion-photo" width="28" height="28" onerror="this.onerror=null; this.src='${DEFAULT_PHOTO}'">
+      <div class="suggestion-info">
+        <span class="suggestion-name">${highlightedName}</span>
+        <span>${badgeHtml}</span>
+      </div>
+    `;
+    
+    item.addEventListener('click', () => selectAdvancedPlayer(player));
+    elements.searchAdvancedSuggestions.appendChild(item);
+  });
+  
+  elements.searchAdvancedSuggestions.classList.remove('hidden');
+}
+
+// Clear Advanced Search
+function clearAdvancedSearch() {
+  elements.searchAdvancedPlayer.value = '';
+  elements.searchAdvancedSuggestions.innerHTML = '';
+  elements.searchAdvancedSuggestions.classList.add('hidden');
+  elements.btnClearAdvancedSearch.classList.add('hidden');
+  
+  elements.advancedProfileContainer.classList.add('hidden');
+  elements.advancedPlaceholder.classList.remove('hidden');
+  
+  selectedAdvancedPlayerObj = null;
+  elements.formAdvancedEdit.reset();
+  elements.searchAdvancedPlayer.focus();
+}
+
+// Perform Full Advanced Search
+function performFullAdvancedSearch() {
+  const rawQuery = elements.searchAdvancedPlayer.value.trim();
+  const query = normalizeString(rawQuery);
+  
+  if (query.length < 2) {
+    showToast('Ingresa al menos 2 caracteres para buscar', 'warning');
+    return;
+  }
+  
+  elements.advancedProfileContainer.classList.add('hidden');
+  elements.advancedPlaceholder.classList.add('hidden');
+  
+  const matches = state.players.filter(player => {
+    const nameMatch = normalizeString(player.nombres).includes(query);
+    const surnameMatch = normalizeString(player.apellidos).includes(query);
+    const ciMatch = player.ci.toLowerCase().includes(query);
+    return nameMatch || surnameMatch || ciMatch;
+  });
+  
+  elements.searchAdvancedSuggestions.innerHTML = '';
+  
+  if (matches.length === 0) {
+    elements.searchAdvancedSuggestions.innerHTML = `<div class="no-suggestions">No se encontraron jugadores para "${rawQuery}"</div>`;
+    elements.searchAdvancedSuggestions.classList.remove('hidden');
+    return;
+  }
+  
+  const header = document.createElement('div');
+  header.className = 'suggestions-header';
+  header.textContent = `Resultados de búsqueda: ${matches.length} encontrados`;
+  elements.searchAdvancedSuggestions.appendChild(header);
+  
+  const displayMatches = matches.slice(0, 100);
+  
+  displayMatches.forEach((player) => {
+    const item = document.createElement('div');
+    item.className = 'suggestion-item';
+    item.dataset.ci = player.ci;
+    
+    const isTemp = player.ci.startsWith('TEMP-');
+    const badgeHtml = isTemp ? `<span class="badge badge-temp">Temp</span>` : `<span class="badge">CI: ${player.ci}</span>`;
+    const photoUrl = isTemp ? DEFAULT_PHOTO : `${SUPABASE_URL}/storage/v1/object/public/fotos_jugadores/${player.ci}.jpg`;
+    
+    const rawFullName = formatFullName(player);
+    const highlightedName = highlightText(rawFullName, rawQuery);
+    
+    item.innerHTML = `
+      <img src="${photoUrl}" class="suggestion-photo" width="28" height="28" onerror="this.onerror=null; this.src='${DEFAULT_PHOTO}'">
+      <div class="suggestion-info">
+        <span class="suggestion-name">${highlightedName}</span>
+        <span>${badgeHtml}</span>
+      </div>
+    `;
+    
+    item.addEventListener('click', () => selectAdvancedPlayer(player));
+    elements.searchAdvancedSuggestions.appendChild(item);
+  });
+  
+  elements.searchAdvancedSuggestions.classList.remove('hidden');
+}
+
+// Select Player for Advanced Management
+function selectAdvancedPlayer(player) {
+  selectedAdvancedPlayerObj = player;
+  elements.searchAdvancedSuggestions.classList.add('hidden');
+  elements.searchAdvancedPlayer.value = formatFullName(player);
+  elements.btnClearAdvancedSearch.classList.remove('hidden');
+  
+  // Fill inputs
+  elements.advancedNombres.value = player.nombres || '';
+  elements.advancedApellidos.value = player.apellidos || '';
+  elements.advancedCI.value = player.ci || '';
+  elements.advancedBirthdate.value = player.fecha_nacimiento || '';
+  
+  // Show profile form
+  elements.advancedPlaceholder.classList.add('hidden');
+  elements.advancedProfileContainer.classList.remove('hidden');
+}
+
+// Hide Advanced Modal
+function hideAdvancedConfirmModal() {
+  elements.advancedConfirmModal.classList.add('hidden');
+  elements.advancedConfirmPassword.value = '';
+  elements.advancedConfirmPasswordError.classList.add('hidden');
+  pendingAdvancedAction = null;
+  
+  // Reset confirm button spinner & text
+  const btnText = elements.btnAdvancedModalConfirm.querySelector('.btn-text');
+  const spinner = elements.btnAdvancedModalConfirm.querySelector('.btn-spinner');
+  btnText.textContent = 'Confirmar y Aplicar';
+  spinner.classList.add('hidden');
+  elements.btnAdvancedModalConfirm.disabled = false;
+  elements.btnAdvancedModalCancel.disabled = false;
+}
+
+// Handle advanced edit submit (Save Changes)
+function handleAdvancedEditSubmit(e) {
+  e.preventDefault();
+  
+  if (!selectedAdvancedPlayerObj) {
+    showToast('Por favor selecciona un jugador primero', 'error');
+    return;
+  }
+  
+  const nombres = elements.advancedNombres.value.trim().toUpperCase();
+  const apellidos = elements.advancedApellidos.value.trim().toUpperCase();
+  const ci = elements.advancedCI.value.trim();
+  const birthdate = elements.advancedBirthdate.value || null;
+  
+  if (!nombres || !apellidos || !ci) {
+    showToast('Los campos de Nombres, Apellidos y C.I. son obligatorios', 'warning');
+    return;
+  }
+  
+  // Verify changes
+  const hasChanges = nombres !== selectedAdvancedPlayerObj.nombres || 
+                     apellidos !== selectedAdvancedPlayerObj.apellidos || 
+                     ci !== selectedAdvancedPlayerObj.ci || 
+                     birthdate !== selectedAdvancedPlayerObj.fecha_nacimiento;
+                     
+  if (!hasChanges) {
+    showToast('No has realizado ningún cambio en los campos', 'info');
+    return;
+  }
+
+  // If CI changed, verify the new CI is not already used by another player
+  if (ci !== selectedAdvancedPlayerObj.ci) {
+    const duplicate = state.players.find(p => p.ci === ci);
+    if (duplicate) {
+      showToast(`Error: Ya existe otro jugador registrado con el C.I. ${ci} (${formatFullName(duplicate)}).`, 'error');
+      return;
+    }
+  }
+  
+  // Prepare Summary
+  let summaryHtml = '<ul style="list-style-type: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem;">';
+  if (nombres !== selectedAdvancedPlayerObj.nombres) {
+    summaryHtml += `<li><strong>Nombres:</strong> <del style="color: var(--color-danger);">${selectedAdvancedPlayerObj.nombres}</del> ➡️ <ins style="color: var(--color-success); text-decoration: none;">${nombres}</ins></li>`;
+  }
+  if (apellidos !== selectedAdvancedPlayerObj.apellidos) {
+    summaryHtml += `<li><strong>Apellidos:</strong> <del style="color: var(--color-danger);">${selectedAdvancedPlayerObj.apellidos}</del> ➡️ <ins style="color: var(--color-success); text-decoration: none;">${apellidos}</ins></li>`;
+  }
+  if (ci !== selectedAdvancedPlayerObj.ci) {
+    summaryHtml += `<li><strong>C.I.:</strong> <del style="color: var(--color-danger);">${selectedAdvancedPlayerObj.ci}</del> ➡️ <ins style="color: var(--color-success); text-decoration: none;">${ci}</ins></li>`;
+  }
+  if (birthdate !== selectedAdvancedPlayerObj.fecha_nacimiento) {
+    summaryHtml += `<li><strong>Nacimiento:</strong> <del style="color: var(--color-danger);">${formatDate(selectedAdvancedPlayerObj.fecha_nacimiento)}</del> ➡️ <ins style="color: var(--color-success); text-decoration: none;">${formatDate(birthdate)}</ins></li>`;
+  }
+  summaryHtml += '</ul>';
+  
+  pendingAdvancedAction = {
+    type: 'edit',
+    player: selectedAdvancedPlayerObj,
+    newData: { nombres, apellidos, ci, fecha_nacimiento: birthdate }
+  };
+  
+  elements.advancedModalTitle.textContent = 'Confirmar Modificación de Jugador';
+  elements.advancedModalWarningText.textContent = 'Esta acción modificará de forma permanente los datos del jugador en la base de datos central.';
+  elements.advancedModalSummaryText.innerHTML = summaryHtml;
+  
+  elements.advancedConfirmModal.classList.remove('hidden');
+  elements.advancedConfirmPassword.focus();
+}
+
+// Handle Advanced Delete Click
+function handleAdvancedDeleteClick() {
+  if (!selectedAdvancedPlayerObj) {
+    showToast('Por favor selecciona un jugador primero', 'error');
+    return;
+  }
+  
+  const summaryHtml = `
+    <div style="font-weight: bold; color: var(--color-danger);">
+      Jugador: ${formatFullName(selectedAdvancedPlayerObj)} <br>
+      C.I.: ${selectedAdvancedPlayerObj.ci}
+    </div>
+    <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem;">
+      Se eliminarán en cascada todos sus registros de participación en la tabla 'historial_participacion'.
+    </div>
+  `;
+  
+  pendingAdvancedAction = {
+    type: 'delete',
+    player: selectedAdvancedPlayerObj
+  };
+  
+  elements.advancedModalTitle.textContent = 'Confirmar Eliminación de Jugador';
+  elements.advancedModalWarningText.textContent = '¡ADVERTENCIA CRÍTICA! Esta acción es COMPLETAMENTE IRREVERSIBLE. Se borrarán todos los datos del jugador y su historial de participación.';
+  elements.advancedModalSummaryText.innerHTML = summaryHtml;
+  
+  elements.advancedConfirmModal.classList.remove('hidden');
+  elements.advancedConfirmPassword.focus();
+}
+
+// Execute Pending Advanced Action
+async function executePendingAdvancedAction() {
+  if (!pendingAdvancedAction) return;
+  
+  // Verify Admin password
+  const password = elements.advancedConfirmPassword.value;
+  if (password !== 'matricula2026') {
+    elements.advancedConfirmPasswordError.classList.remove('hidden');
+    elements.advancedConfirmPassword.focus();
+    return;
+  }
+  
+  // Hide password error if any
+  elements.advancedConfirmPasswordError.classList.add('hidden');
+  
+  // Show spinner
+  const btnText = elements.btnAdvancedModalConfirm.querySelector('.btn-text');
+  const spinner = elements.btnAdvancedModalConfirm.querySelector('.btn-spinner');
+  btnText.textContent = 'Aplicando...';
+  spinner.classList.remove('hidden');
+  elements.btnAdvancedModalConfirm.disabled = true;
+  elements.btnAdvancedModalCancel.disabled = true;
+  
+  try {
+    if (pendingAdvancedAction.type === 'edit') {
+      const oldCi = pendingAdvancedAction.player.ci;
+      const { nombres, apellidos, ci: newCi, fecha_nacimiento } = pendingAdvancedAction.newData;
+      
+      if (oldCi === newCi) {
+        // Simple update
+        const { error } = await supabase
+          .from('jugadores')
+          .update({ nombres, apellidos, fecha_nacimiento })
+          .eq('ci', oldCi);
+          
+        if (error) throw error;
+        
+        // Update local cache
+        const index = state.players.findIndex(p => p.ci === oldCi);
+        if (index !== -1) {
+          state.players[index].nombres = nombres;
+          state.players[index].apellidos = apellidos;
+          state.players[index].fecha_nacimiento = fecha_nacimiento;
+        }
+      } else {
+        // Cascade manually: Create new, Update history, Delete old
+        // 1. Insert new player
+        const { error: insertError } = await supabase
+          .from('jugadores')
+          .insert({ ci: newCi, nombres, apellidos, fecha_nacimiento });
+          
+        if (insertError) throw insertError;
+        
+        // 2. Update history records
+        const { error: historyError } = await supabase
+          .from('historial_participacion')
+          .update({ jugador_ci: newCi })
+          .eq('jugador_ci', oldCi);
+          
+        if (historyError) throw historyError;
+        
+        // 3. Delete old player record
+        const { error: deleteError } = await supabase
+          .from('jugadores')
+          .delete()
+          .eq('ci', oldCi);
+          
+        if (deleteError) throw deleteError;
+        
+        // Update local cache
+        const index = state.players.findIndex(p => p.ci === oldCi);
+        if (index !== -1) {
+          state.players[index] = { ci: newCi, nombres, apellidos, fecha_nacimiento };
+        }
+        
+        state.history.forEach(h => {
+          if (h.jugador_ci === oldCi) {
+            h.jugador_ci = newCi;
+          }
+        });
+      }
+      
+      // Save local cache
+      localStorage.setItem('vinto_players', JSON.stringify(state.players));
+      localStorage.setItem('vinto_history', JSON.stringify(state.history));
+      
+      showToast('Datos del jugador modificados con éxito', 'success');
+      
+    } else if (pendingAdvancedAction.type === 'delete') {
+      const ci = pendingAdvancedAction.player.ci;
+      
+      // Delete ordered: first history, then player
+      const { error: historyError } = await supabase
+        .from('historial_participacion')
+        .delete()
+        .eq('jugador_ci', ci);
+        
+      if (historyError) throw historyError;
+      
+      const { error: playerError } = await supabase
+        .from('jugadores')
+        .delete()
+        .eq('ci', ci);
+        
+      if (playerError) throw playerError;
+      
+      // Update local cache
+      state.players = state.players.filter(p => p.ci !== ci);
+      state.history = state.history.filter(h => h.jugador_ci !== ci);
+      
+      localStorage.setItem('vinto_players', JSON.stringify(state.players));
+      localStorage.setItem('vinto_history', JSON.stringify(state.history));
+      
+      showToast('Jugador y su historial deportivo eliminados de la base de datos', 'success');
+    }
+    
+    // Refresh Stats UI
+    updateStatsUI();
+    
+    // Clear Advanced Panel Search and close modal
+    clearAdvancedSearch();
+    hideAdvancedConfirmModal();
+    
+  } catch (err) {
+    console.error("Advanced administrative action failed:", err);
+    showToast(`Error al procesar la operación: ${err.message}`, 'error');
+    
+    // Reset confirmation button
+    btnText.textContent = 'Confirmar y Aplicar';
+    spinner.classList.add('hidden');
+    elements.btnAdvancedModalConfirm.disabled = false;
+    elements.btnAdvancedModalCancel.disabled = false;
+  }
+}
+
 // Start Application with Authentication Gating
+// Start Application with Gating
 function checkAuth() {
   const isAuthenticated = sessionStorage.getItem('vinto_auth') === 'true';
   const appContainer = document.querySelector('.app-container');

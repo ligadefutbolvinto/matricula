@@ -78,6 +78,7 @@
       <button class="nav-btn active" data-nav="section-players">👤 Gestión de Jugadores</button>
       <button class="nav-btn" data-nav="section-rosters">📋 Renovación de Nóminas</button>
       <button class="nav-btn" data-nav="section-carnets">💳 Carnets de Jugadores</button>
+      <button class="nav-btn" data-nav="section-advanced">⚙️ Avanzado</button>
     </nav>
 
     <!-- Players Management Section -->
@@ -381,6 +382,95 @@
       </section>
     </div>
   </div>
+
+  <!-- Advanced Section -->
+  <div id="section-advanced" class="nav-section hidden">
+    <div class="dashboard-grid">
+      <!-- Left Column: Search & Profile editing -->
+      <section class="grid-col main-panel">
+        <!-- Search Card -->
+        <div class="glass-card card-search">
+          <h2 class="section-title">🔍 Buscador de Jugadores (Edición / Eliminación)</h2>
+          <p class="section-desc">Busca al jugador en la base de datos local para modificar sus datos o eliminar su registro.</p>
+          
+          <div class="search-input-wrapper">
+            <div class="search-input-inner">
+              <input type="text" id="search-advanced-player" placeholder="Escribe el nombre o apellido del jugador..." autocomplete="off">
+              <span class="search-icon">🔍</span>
+              <button id="btn-clear-advanced-search" class="clear-input-btn hidden" type="button" title="Limpiar búsqueda">×</button>
+            </div>
+            <button id="btn-advanced-search-trigger" class="btn btn-primary btn-search-go" type="button">Buscar</button>
+          </div>
+          
+          <!-- Suggestion Box for Advanced Search -->
+          <div id="search-advanced-suggestions" class="suggestions-container hidden"></div>
+        </div>
+
+        <!-- Advanced Form Card -->
+        <div id="advanced-profile-container" class="glass-card hidden" style="margin-top: 1.5rem;">
+          <h2 class="section-title">⚙️ Editar Datos del Jugador</h2>
+          <p class="section-desc">Modifica la información básica o elimina la ficha deportiva de forma permanente.</p>
+          
+          <form id="form-advanced-edit" class="sport-form" style="margin-top: 1.5rem;">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="advanced-nombres">Nombres <span class="required" style="color: var(--color-danger);">*</span></label>
+                <input type="text" id="advanced-nombres" required>
+              </div>
+              <div class="form-group">
+                <label for="advanced-apellidos">Apellidos <span class="required" style="color: var(--color-danger);">*</span></label>
+                <input type="text" id="advanced-apellidos" required>
+              </div>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label for="advanced-ci">Cédula de Identidad (C.I.) <span class="required" style="color: var(--color-danger);">*</span></label>
+                <input type="text" id="advanced-ci" required>
+                <span class="helper-text" style="color: var(--color-warning); font-size: 0.8rem; margin-top: 0.25rem; display: block;">
+                  ⚠️ Nota: Modificar el C.I. de forma manual requiere actualizar todos los registros históricos en cascada.
+                </span>
+              </div>
+              <div class="form-group">
+                <label for="advanced-birthdate">Fecha de Nacimiento</label>
+                <input type="date" id="advanced-birthdate">
+              </div>
+            </div>
+            
+            <div class="form-actions-advanced" style="display: flex; gap: 1rem; margin-top: 2rem;">
+              <button type="submit" id="btn-advanced-save" class="btn btn-primary" style="flex: 1;">
+                💾 Guardar Cambios
+              </button>
+              <button type="button" id="btn-advanced-delete" class="btn btn-danger" style="flex: 1;">
+                🗑️ Eliminar Jugador
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- No Player Selected State -->
+        <div id="advanced-placeholder" class="glass-card placeholder-card">
+          <div class="placeholder-icon">⚙️</div>
+          <h3>Ningún jugador seleccionado</h3>
+          <p>Busca un jugador en el cuadro de búsqueda superior para cargar su panel administrativo.</p>
+        </div>
+      </section>
+
+      <!-- Right Column: Info & Security Warning -->
+      <section class="grid-col sidebar-panel">
+        <div class="glass-card card-register">
+          <h2 class="section-title">🛡️ Zona Administrativa</h2>
+          <p class="section-desc">Ten especial precaución al realizar cambios en esta sección. Las modificaciones afectan directamente a la base de datos central en Supabase.</p>
+          <ul class="instructions-list" style="margin-left: 1.25rem; font-size: 0.85rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem;">
+            <li><strong>Modificación de datos:</strong> Al actualizar nombres, apellidos o fecha de nacimiento, se actualizará el registro principal del jugador. Los carnets generados posteriormente reflejarán estos cambios.</li>
+            <li><strong>Cambio de C.I.:</strong> Si actualizas el C.I., el sistema creará un nuevo registro con el C.I. nuevo, transferirá todo su historial de participación al nuevo C.I. y eliminará la ficha antigua para preservar la integridad referencial.</li>
+            <li><strong>Eliminación de Registro:</strong> Eliminar un jugador borrará tanto su ficha personal como todas sus participaciones registradas de forma irreversible. Úsalo solo para registros erróneos o duplicados.</li>
+            <li><strong>Validación de Privilegios:</strong> Por seguridad, cualquier operación de guardado o eliminación solicitará la contraseña de administrador (`matricula2026`).</li>
+          </ul>
+        </div>
+      </section>
+    </div>
+  </div>
 </div> <!-- End of .app-container -->
 
   <!-- Confirmation Modal -->
@@ -402,6 +492,34 @@
         <button id="modal-confirm" class="btn btn-primary">
           <svg class="btn-spinner hidden" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
           <span class="btn-text">Confirmar e Inyectar</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Advanced Confirmation Modal -->
+  <div id="advanced-confirm-modal" class="modal-overlay hidden">
+    <div class="modal-card glass-card">
+      <div class="modal-header">
+        <div class="modal-icon" style="color: var(--color-danger);">⚠️</div>
+        <h3 id="advanced-modal-title">Confirmar Operación Administrativa</h3>
+      </div>
+      <div class="modal-body">
+        <p id="advanced-modal-warning-text" style="font-weight: 600; color: var(--color-danger);"></p>
+        <div class="confirm-summary-box" style="margin-top: 1rem; margin-bottom: 1.5rem;">
+          <div id="advanced-modal-summary-text"></div>
+        </div>
+        <div class="form-group">
+          <label for="advanced-confirm-password" style="font-weight: 700; margin-bottom: 0.5rem; display: block;">Contraseña de Administrador:</label>
+          <input type="password" id="advanced-confirm-password" placeholder="••••••••" required style="width: 100%; box-sizing: border-box; padding: 0.75rem 0.9rem; background-color: var(--bg-secondary); border: 1px solid var(--card-border); border-radius: var(--radius-sm); color: var(--text-primary);">
+          <div id="advanced-confirm-password-error" class="login-error-msg hidden" style="color: var(--color-danger); margin-top: 0.5rem; font-size: 0.85rem;">Contraseña incorrecta. Acción denegada.</div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-advanced-modal-cancel" class="btn btn-secondary">Cancelar</button>
+        <button id="btn-advanced-modal-confirm" class="btn btn-danger">
+          <svg class="btn-spinner hidden" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          <span class="btn-text">Confirmar y Aplicar</span>
         </button>
       </div>
     </div>
