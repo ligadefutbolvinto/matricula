@@ -719,6 +719,19 @@ function selectPlayer(player) {
   
   // Reset transfer form
   elements.formTransfer.reset();
+
+  // Pre-populate category from latest history record
+  const playerHistory = state.history.filter(h => h.jugador_ci === player.ci);
+  playerHistory.sort((a, b) => b['año'] - a['año']);
+  const latestRecord = playerHistory[0] || null;
+  const categorySelect = document.getElementById('transfer-category');
+  if (categorySelect) {
+    if (latestRecord && latestRecord.categoria_jugador) {
+      categorySelect.value = latestRecord.categoria_jugador;
+    } else {
+      categorySelect.value = 'natural';
+    }
+  }
   
   // Reset tabs: activate history tab
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
