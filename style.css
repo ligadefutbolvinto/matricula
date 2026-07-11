@@ -1,4 +1,4 @@
-/* Global Reset & Base Variables */
+﻿/* Global Reset & Base Variables */
 :root {
   --bg-primary: #0a0e1a;
   --bg-secondary: #11182c;
@@ -1848,18 +1848,19 @@ body {
   object-fit: contain;
   pointer-events: none;
   z-index: 1;
-  opacity: 0.96;
-  margin-bottom: -0.14cm;
+  opacity: 0.98;
+  margin-bottom: -0.04cm;
+  transform: translateY(-0.12cm);
 }
 
 .carnet-signature-president {
-  width: 1.55cm;
-  height: 0.78cm;
+  width: 1.95cm;
+  height: 1cm;
 }
 
 .carnet-signature-secretary {
-  width: 1.85cm;
-  height: 0.62cm;
+  width: 2.35cm;
+  height: 0.82cm;
 }
 
 .carnet-sig-line,
