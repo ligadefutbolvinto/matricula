@@ -1761,10 +1761,10 @@ body {
 
 .carnet-back-watermark {
   position: absolute;
-  width: 2.4cm;
-  height: 2.4cm;
+  width: 4.8cm;
+  height: 4.8cm;
   object-fit: contain;
-  opacity: 0.08;
+  opacity: 0.25;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
