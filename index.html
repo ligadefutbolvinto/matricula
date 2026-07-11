@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
+<body>
   <!-- Login Container -->
   <div id="login-container" class="login-overlay">
     <div class="login-card glass-card">
@@ -320,7 +321,7 @@
         <!-- Carnet Preview Card -->
         <div id="carnet-preview-container" class="glass-card carnet-preview-card hidden">
           <h2 class="section-title">✨ Previsualización del Carnet</h2>
-          <p class="section-desc">Diseño estándar de tarjeta PVC CR80 (8.5cm x 5.4cm).</p>
+          <p class="section-desc">Diseño estándar de tarjeta CR80 (8.5cm x 5.4cm).</p>
           
           <div class="carnet-double-view">
             <!-- Anverso -->
@@ -341,8 +342,11 @@
           </div>
 
           <div class="carnet-actions" style="margin-top: 1.5rem;">
-            <button id="btn-print-carnet" class="btn btn-accent btn-full">
-              <span>🖨️ Imprimir Carnet PVC</span>
+            <button id="btn-add-carnet-queue" class="btn btn-primary btn-full" type="button">
+              <span>Agregar a cola de impresión</span>
+            </button>
+            <button id="btn-print-carnet" class="btn btn-accent btn-full" type="button">
+              <span>Imprimir carnet actual</span>
             </button>
           </div>
         </div>
@@ -357,17 +361,71 @@
 
       <!-- Right Column: Info & Instructions -->
       <section class="grid-col sidebar-panel">
+        <div class="glass-card card-register carnet-team-generator-card">
+          <h2 class="section-title">Generar Carnet por Equipo</h2>
+          <p class="section-desc">Carga la nómina habilitada de un club y genera un PDF carta con 5 carnets por hoja.</p>
+
+          <div class="search-input-wrapper carnet-team-search">
+            <div class="search-input-inner">
+              <input type="text" id="carnet-team-input" list="teams-list" placeholder="Escribe para buscar un club..." autocomplete="off">
+              <span class="search-icon">🔍</span>
+            </div>
+            <button id="btn-load-carnet-team" class="btn btn-primary btn-search-go" type="button">Cargar</button>
+          </div>
+
+          <div id="carnet-team-results" class="carnet-team-results hidden">
+            <div class="roster-table-actions">
+              <div class="roster-info-badge">
+                Club: <strong id="carnet-team-selected-name">-</strong>
+              </div>
+              <div class="select-all-wrapper">
+                <input type="checkbox" id="carnet-team-select-all" checked>
+                <label for="carnet-team-select-all">Marcar todos</label>
+              </div>
+            </div>
+
+            <div class="table-scroll-container carnet-team-scroll">
+              <table class="roster-table carnet-roster-table">
+                <thead>
+                  <tr>
+                    <th width="70px">PDF</th>
+                    <th>Jugador</th>
+                    <th>C.I.</th>
+                  </tr>
+                </thead>
+                <tbody id="carnet-team-table-body"></tbody>
+              </table>
+            </div>
+
+            <button id="btn-generate-team-carnets-pdf" class="btn btn-accent btn-full" type="button">
+              <span>Generar PDF del equipo</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="glass-card card-register carnet-print-queue-card">
+          <h2 class="section-title">Cola de Impresión</h2>
+          <p id="carnet-queue-summary" class="section-desc">No hay carnets en cola.</p>
+          <div class="carnet-queue-actions">
+            <button id="btn-generate-queue-pdf" class="btn btn-accent btn-full" type="button" disabled>
+              <span>Generar PDF de la cola</span>
+            </button>
+            <button id="btn-clear-carnet-queue" class="btn btn-secondary btn-full" type="button" disabled>
+              <span>Limpiar cola</span>
+            </button>
+          </div>
+        </div>
         <div class="glass-card card-register">
           <h2 class="section-title">ℹ️ Instrucciones de Impresión</h2>
-          <p class="section-desc">Sigue estos pasos para obtener una impresión óptima en tu impresora de tarjetas plásticas PVC.</p>
+          <p class="section-desc">Genera un PDF carta, imprime a buena calidad y recorta cada fila para plastificar.</p>
           <ul class="instructions-list" style="margin-left: 1.25rem; font-size: 0.85rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 0.75rem;">
-            <li><strong>Medida Estándar:</strong> El contenedor está diseñado a escala física exacta de una tarjeta de PVC CR80 (8.5 cm x 5.4 cm).</li>
-            <li><strong>Diálogo de Impresión:</strong> Al hacer clic en <em>Imprimir Carnet PVC</em>, se abrirá la ventana de impresión del sistema.</li>
+            <li><strong>Medida Estándar:</strong> Cada carnet conserva escala CR80 (8.5 cm x 5.4 cm).</li>
+            <li><strong>PDF Carta:</strong> El sistema acomoda 5 filas por hoja con anverso a la izquierda y reverso a la derecha.</li>
             <li><strong>Ajustes recomendados:</strong>
               <ul style="margin-left: 1rem; margin-top: 0.25rem; display: flex; flex-direction: column; gap: 0.25rem;">
-                <li>Establece el tamaño de papel a <strong>CR80</strong> (si tu impresora lo soporta) o tamaño tarjeta.</li>
-                <li>Establece los <strong>márgenes</strong> en "Ninguno" o "Cero".</li>
-                <li>Activa la casilla <strong>Gráficos de fondo</strong> (Background graphics) en la configuración de la impresora.</li>
+                <li>Imprime en tamaño <strong>Carta</strong>.</li>
+                <li>Usa escala real o 100% cuando el visor de PDF lo permita.</li>
+                <li>Activa impresión de gráficos/fondos para conservar colores.</li>
               </ul>
             </li>
             <li><strong>Colores del Carnet según Categoría:</strong>
@@ -533,6 +591,7 @@
 
   <!-- Print section wrapper -->
   <div id="print-section" class="print-only-container"></div>
+  <div id="pdf-render-area" class="pdf-render-area" aria-hidden="true"></div>
 
   <!-- Core JavaScript -->
   <script type="module" src="/app.js"></script>
