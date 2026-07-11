@@ -307,7 +307,7 @@ function buildCarnetHtml(player) {
     catClass: data.catClass,
     anversoHtml: `
     <div class="carnet-front-header">
-      <img src="/logo.png" class="carnet-header-logo" alt="" crossorigin="anonymous" onerror="this.style.display='none'">
+      <img src="/logo_liga.png" class="carnet-header-logo" alt="" crossorigin="anonymous" onerror="this.style.display='none'">
       <div class="carnet-header-text-container">
         <div class="carnet-header-title">LIGA DE FUTBOL VINTO</div>
         <div class="carnet-header-subtitle">Fdo. 13 de Mayo de 1963</div>
@@ -353,7 +353,7 @@ function buildCarnetHtml(player) {
       <img src="${data.qrImgUrl}" class="carnet-back-qr-img" alt="QR Verification" crossorigin="anonymous">
     </div>
     <div class="carnet-back-signatures">
-      <img src="/logo.png" class="carnet-back-watermark" alt="" crossorigin="anonymous">
+      <img src="/logo_liga.png" class="carnet-back-watermark" alt="" crossorigin="anonymous">
       <div class="carnet-sig-area">
         <img src="/presidente.png" class="carnet-signature-img carnet-signature-president" alt="" crossorigin="anonymous">
         <div class="carnet-sig-line"></div>
