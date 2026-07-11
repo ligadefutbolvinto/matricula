@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+﻿import { createClient } from '@supabase/supabase-js';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -363,7 +363,7 @@ function buildCarnetHtml(player) {
       <div class="carnet-sig-area">
         <img src="/secretario.png" class="carnet-signature-img carnet-signature-secretary" alt="" crossorigin="anonymous">
         <div class="carnet-sig-line"></div>
-        <span class="carnet-sig-name">Marcelo Donaire</span>
+        <span class="carnet-sig-name">Jose Marcelo Donaire</span>
         <span class="carnet-sig-label">Srio. Matriculas</span>
       </div>
     </div>
