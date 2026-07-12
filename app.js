@@ -355,13 +355,13 @@ function buildCarnetHtml(player) {
     <div class="carnet-back-signatures">
       <img src="/logo_liga.png" class="carnet-back-watermark" alt="" crossorigin="anonymous">
       <div class="carnet-sig-area">
-        <img src="/presidente.png" class="carnet-signature-img carnet-signature-president" alt="" crossorigin="anonymous">
+        <img src="/presidente1.png" class="carnet-signature-img carnet-signature-president" alt="" crossorigin="anonymous">
         <div class="carnet-sig-line"></div>
         <span class="carnet-sig-name">Enrique Uribe</span>
         <span class="carnet-sig-label">Presidente</span>
       </div>
       <div class="carnet-sig-area">
-        <img src="/secretario.png" class="carnet-signature-img carnet-signature-secretary" alt="" crossorigin="anonymous">
+        <img src="/secretario1.png" class="carnet-signature-img carnet-signature-secretary" alt="" crossorigin="anonymous">
         <div class="carnet-sig-line"></div>
         <span class="carnet-sig-name">Jose Marcelo Donaire</span>
         <span class="carnet-sig-label">Srio. Matriculas</span>
