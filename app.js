@@ -361,7 +361,7 @@ function buildCarnetHtml(player) {
         <span class="carnet-sig-label">Presidente</span>
       </div>
       <div class="carnet-sig-area">
-        <img src="/secretario1.png" class="carnet-signature-img carnet-signature-secretary" alt="" crossorigin="anonymous">
+        <img src="/marcelo.png" class="carnet-signature-img carnet-signature-secretary" alt="" crossorigin="anonymous">
         <div class="carnet-sig-line"></div>
         <span class="carnet-sig-name">Jose Marcelo Donaire</span>
         <span class="carnet-sig-label">Srio. Matriculas</span>
