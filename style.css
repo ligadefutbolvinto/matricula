@@ -467,6 +467,24 @@ body {
   border: 1px solid rgba(245, 158, 11, 0.25);
 }
 
+.badge-category-natural {
+  background-color: rgba(0, 143, 57, 0.12);
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.badge-category-refuerzo {
+  background-color: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
+.badge-category-juvenil {
+  background-color: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
 /* Tabs */
 .profile-tabs {
   display: flex;

@@ -245,6 +245,29 @@ function getTeamSeasonCategory(team, preferredYear = getCurrentYear()) {
   return 'Sin categoría';
 }
 
+function normalizePlayerCategory(category) {
+  return ['natural', 'refuerzo', 'juvenil'].includes(category) ? category : 'natural';
+}
+
+function getPlayerSavedCategory(player) {
+  const latestRecord = player ? getLatestPlayerRecord(player.ci) : null;
+  return normalizePlayerCategory(latestRecord?.categoria_jugador);
+}
+
+function getPlayerCategoryLabel(category) {
+  const normalizedCategory = normalizePlayerCategory(category);
+  if (normalizedCategory === 'refuerzo') return 'Refuerzo';
+  if (normalizedCategory === 'juvenil') return 'Juvenil';
+  return 'Natural';
+}
+
+function buildAdvancedCategoryBadge(player) {
+  if (!player || player.ci.startsWith('TEMP-')) return '<span class="badge badge-temp">Temp</span>';
+
+  const category = getPlayerSavedCategory(player);
+  const categoryLabel = getPlayerCategoryLabel(category);
+  return `<span class="badge badge-category badge-category-${category}">${escapeHtml(categoryLabel)}</span><span class="suggestion-ci">CI: ${escapeHtml(player.ci)}</span>`;
+}
 function getCarnetRenderData(player) {
   const latestRecord = getLatestPlayerRecord(player.ci);
   const currentYear = getCurrentYear();
@@ -1970,7 +1993,7 @@ function handleAdvancedSearchInput() {
     item.dataset.ci = player.ci;
     
     const isTemp = player.ci.startsWith('TEMP-');
-    const badgeHtml = isTemp ? `<span class="badge badge-temp">Temp</span>` : `<span class="badge">CI: ${player.ci}</span>`;
+    const badgeHtml = buildAdvancedCategoryBadge(player);
     const photoUrl = isTemp ? DEFAULT_PHOTO : `${SUPABASE_URL}/storage/v1/object/public/fotos_jugadores/${player.ci}.jpg`;
     
     const rawFullName = formatFullName(player);
@@ -2050,7 +2073,7 @@ function performFullAdvancedSearch() {
     item.dataset.ci = player.ci;
     
     const isTemp = player.ci.startsWith('TEMP-');
-    const badgeHtml = isTemp ? `<span class="badge badge-temp">Temp</span>` : `<span class="badge">CI: ${player.ci}</span>`;
+    const badgeHtml = buildAdvancedCategoryBadge(player);
     const photoUrl = isTemp ? DEFAULT_PHOTO : `${SUPABASE_URL}/storage/v1/object/public/fotos_jugadores/${player.ci}.jpg`;
     
     const rawFullName = formatFullName(player);
@@ -2085,7 +2108,7 @@ function selectAdvancedPlayer(player) {
   elements.advancedApellidos.value = player.apellidos || '';
   elements.advancedCI.value = player.ci || '';
   elements.advancedBirthdate.value = player.fecha_nacimiento || '';
-  elements.advancedCategory.value = latestRecord?.categoria_jugador || 'natural';
+  elements.advancedCategory.value = getPlayerSavedCategory(player);
   elements.advancedPhotoInput.value = '';
   elements.advancedPhotoPreview.onerror = () => {
     elements.advancedPhotoPreview.onerror = null;
