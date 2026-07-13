@@ -1,4 +1,4 @@
-Ôªø/* Global Reset & Base Variables */
+/* Global Reset & Base Variables */
 :root {
   --bg-primary: #0a0e1a;
   --bg-secondary: #11182c;
@@ -1227,15 +1227,15 @@ body {
   user-select: none;
 }
 
-/* Categor√≠as del Carnet (Bordes Tem√°ticos) */
+/* CategorÌas del Carnet (Bordes Tem·ticos) */
 .carnet-side.cat-natural {
-  border: 3px solid #008f39;
+  border: 0.2cm solid #008f39;
 }
 .carnet-side.cat-refuerzo {
-  border: 3px solid #ff4d4d;
+  border: 0.2cm solid #ff4d4d;
 }
 .carnet-side.cat-juvenil {
-  border: 3px solid #38bdf8;
+  border: 0.2cm solid #38bdf8;
 }
 
 /* Anverso (Frente) Layout */
@@ -1419,7 +1419,7 @@ body {
   color: #0f172a;
 }
 
-/* Reverso (Atr√°s) Layout */
+/* Reverso (Atr·s) Layout */
 .carnet-back {
   display: flex;
   align-items: center;
@@ -1497,7 +1497,7 @@ body {
 .dot-refuerzo { background-color: #ff4d4d; }
 .dot-juvenil { background-color: #38bdf8; }
 
-/* Estilos de Impresi√≥n Directa */
+/* Estilos de ImpresiÛn Directa */
 .print-only-container {
   display: none;
 }
@@ -1513,7 +1513,7 @@ body {
     visibility: hidden;
   }
 
-  /* Mostrar solo el contenedor de impresi√≥n */
+  /* Mostrar solo el contenedor de impresiÛn */
   .print-only-container, .print-only-container * {
     visibility: visible;
   }
@@ -1543,7 +1543,7 @@ body {
     print-color-adjust: exact;
   }
 
-  /* Configurar tama√±o exacto del papel */
+  /* Configurar tamaÒo exacto del papel */
   @page {
     size: 8.5cm 15cm portrait;
     margin: 0;
@@ -1751,7 +1751,7 @@ body {
 .carnet-side.carnet-back.cat-natural,
 .carnet-side.carnet-back.cat-refuerzo,
 .carnet-side.carnet-back.cat-juvenil {
-  border-width: 4px;
+  border-width: 0.2cm;
 }
 
 .carnet-back-signatures {
@@ -1790,12 +1790,12 @@ body {
   width: 21.59cm;
   height: 27.94cm;
   box-sizing: border-box;
-  padding: 0.15cm 1.2cm;
+  padding: 0.47cm 2.295cm;
   background: #ffffff;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  gap: 0.1cm;
+  gap: 0;
   overflow: hidden;
 }
 
@@ -1805,7 +1805,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.65cm;
+  gap: 0;
   page-break-inside: avoid;
 }
 
@@ -1868,4 +1868,53 @@ body {
 .carnet-sig-label {
   position: relative;
   z-index: 2;
+}
+
+/* Advanced player photo editor */
+.advanced-photo-panel {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.advanced-photo-frame {
+  flex: 0 0 96px;
+  width: 96px;
+  height: 120px;
+  overflow: hidden;
+  border: 1px solid var(--card-border-hover);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+}
+
+.advanced-player-photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.advanced-photo-fields {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.advanced-photo-fields input[type="file"] {
+  width: 100%;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 640px) {
+  .advanced-photo-panel {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }

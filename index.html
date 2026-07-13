@@ -470,6 +470,16 @@
           <p class="section-desc">Modifica la información básica o elimina la ficha deportiva de forma permanente.</p>
           
           <form id="form-advanced-edit" class="sport-form" style="margin-top: 1.5rem;">
+            <div class="advanced-photo-panel">
+              <div class="advanced-photo-frame">
+                <img id="advanced-photo-preview" src="" alt="Foto del jugador" class="advanced-player-photo">
+              </div>
+              <div class="advanced-photo-fields">
+                <label for="advanced-photo-input">Fotografía del jugador</label>
+                <input type="file" id="advanced-photo-input" accept="image/*">
+                <span class="helper-text">La foto se guardará usando el C.I. actual del formulario.</span>
+              </div>
+            </div>
             <div class="form-row">
               <div class="form-group">
                 <label for="advanced-nombres">Nombres <span class="required" style="color: var(--color-danger);">*</span></label>
@@ -492,6 +502,18 @@
               <div class="form-group">
                 <label for="advanced-birthdate">Fecha de Nacimiento</label>
                 <input type="date" id="advanced-birthdate">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="advanced-category">Categoría del Jugador</label>
+                <select id="advanced-category">
+                  <option value="natural">Natural</option>
+                  <option value="refuerzo">Refuerzo</option>
+                  <option value="juvenil">Juvenil</option>
+                </select>
+                <span class="helper-text">Se editará la categoría del último registro deportivo del jugador.</span>
               </div>
             </div>
             
@@ -520,10 +542,10 @@
           <h2 class="section-title">🛡️ Zona Administrativa</h2>
           <p class="section-desc">Ten especial precaución al realizar cambios en esta sección. Las modificaciones afectan directamente a la base de datos central en Supabase.</p>
           <ul class="instructions-list" style="margin-left: 1.25rem; font-size: 0.85rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem;">
-            <li><strong>Modificación de datos:</strong> Al actualizar nombres, apellidos o fecha de nacimiento, se actualizará el registro principal del jugador. Los carnets generados posteriormente reflejarán estos cambios.</li>
+            <li><strong>Modificación de datos:</strong> Al actualizar datos, categoría o fotografía, los carnets generados posteriormente reflejarán estos cambios.</li>
             <li><strong>Cambio de C.I.:</strong> Si actualizas el C.I., el sistema creará un nuevo registro con el C.I. nuevo, transferirá todo su historial de participación al nuevo C.I. y eliminará la ficha antigua para preservar la integridad referencial.</li>
             <li><strong>Eliminación de Registro:</strong> Eliminar un jugador borrará tanto su ficha personal como todas sus participaciones registradas de forma irreversible. Úsalo solo para registros erróneos o duplicados.</li>
-            <li><strong>Validación de Privilegios:</strong> Por seguridad, cualquier operación de guardado o eliminación solicitará la contraseña de administrador (`matricula2026`).</li>
+            <li><strong>Validación de Privilegios:</strong> Por seguridad, solo la eliminación solicitará la contraseña de administrador (`matricula2026`).</li>
           </ul>
         </div>
       </section>

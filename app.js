@@ -101,6 +101,9 @@ const elements = {
   advancedApellidos: document.getElementById('advanced-apellidos'),
   advancedCI: document.getElementById('advanced-ci'),
   advancedBirthdate: document.getElementById('advanced-birthdate'),
+  advancedCategory: document.getElementById('advanced-category'),
+  advancedPhotoPreview: document.getElementById('advanced-photo-preview'),
+  advancedPhotoInput: document.getElementById('advanced-photo-input'),
   btnAdvancedSave: document.getElementById('btn-advanced-save'),
   btnAdvancedDelete: document.getElementById('btn-advanced-delete'),
   advancedConfirmModal: document.getElementById('advanced-confirm-modal'),
@@ -206,6 +209,12 @@ function getCurrentYear() {
 
 function getPlayerByCi(ci) {
   return state.players.find(p => p.ci === ci) || null;
+}
+
+function getPlayerPhotoUrlByCi(ci, cacheBust = false) {
+  if (!ci || ci.startsWith('TEMP-')) return DEFAULT_PHOTO;
+  const suffix = cacheBust ? `?v=${Date.now()}` : '';
+  return `${SUPABASE_URL}/storage/v1/object/public/fotos_jugadores/${ci}.jpg${suffix}`;
 }
 
 function getLatestPlayerRecord(playerCi) {
@@ -776,6 +785,7 @@ function setupEventListeners() {
 
   // Advanced Form Submit (Edit)
   elements.formAdvancedEdit.addEventListener('submit', handleAdvancedEditSubmit);
+  elements.advancedPhotoInput.addEventListener('change', handleAdvancedPhotoPreview);
 
   // Advanced Form Delete Click
   elements.btnAdvancedDelete.addEventListener('click', handleAdvancedDeleteClick);
@@ -1993,6 +2003,9 @@ function clearAdvancedSearch() {
   
   selectedAdvancedPlayerObj = null;
   elements.formAdvancedEdit.reset();
+  if (elements.advancedPhotoPreview) {
+    elements.advancedPhotoPreview.src = '';
+  }
   elements.searchAdvancedPlayer.focus();
 }
 
@@ -2064,16 +2077,40 @@ function selectAdvancedPlayer(player) {
   elements.searchAdvancedSuggestions.classList.add('hidden');
   elements.searchAdvancedPlayer.value = formatFullName(player);
   elements.btnClearAdvancedSearch.classList.remove('hidden');
-  
+
+  const latestRecord = getLatestPlayerRecord(player.ci);
+
   // Fill inputs
   elements.advancedNombres.value = player.nombres || '';
   elements.advancedApellidos.value = player.apellidos || '';
   elements.advancedCI.value = player.ci || '';
   elements.advancedBirthdate.value = player.fecha_nacimiento || '';
-  
+  elements.advancedCategory.value = latestRecord?.categoria_jugador || 'natural';
+  elements.advancedPhotoInput.value = '';
+  elements.advancedPhotoPreview.onerror = () => {
+    elements.advancedPhotoPreview.onerror = null;
+    elements.advancedPhotoPreview.src = DEFAULT_PHOTO;
+  };
+  elements.advancedPhotoPreview.src = getPlayerPhotoUrlByCi(player.ci, true);
+
   // Show profile form
   elements.advancedPlaceholder.classList.add('hidden');
   elements.advancedProfileContainer.classList.remove('hidden');
+}
+
+function handleAdvancedPhotoPreview() {
+  const file = elements.advancedPhotoInput.files?.[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    showToast('Selecciona un archivo de imagen válido', 'warning');
+    elements.advancedPhotoInput.value = '';
+    return;
+  }
+
+  const previewUrl = URL.createObjectURL(file);
+  elements.advancedPhotoPreview.onload = () => URL.revokeObjectURL(previewUrl);
+  elements.advancedPhotoPreview.src = previewUrl;
 }
 
 // Hide Advanced Modal
@@ -2092,37 +2129,201 @@ function hideAdvancedConfirmModal() {
   elements.btnAdvancedModalCancel.disabled = false;
 }
 
+async function uploadAdvancedPlayerPhoto(file, ci) {
+  const photoPath = `${ci}.jpg`;
+  const { error: uploadError } = await supabase.storage
+    .from('fotos_jugadores')
+    .upload(photoPath, file, {
+      cacheControl: '3600',
+      contentType: file.type || 'image/jpeg',
+      upsert: true
+    });
+
+  if (uploadError) throw uploadError;
+
+  const { data } = supabase.storage
+    .from('fotos_jugadores')
+    .getPublicUrl(photoPath);
+
+  return data.publicUrl;
+}
+
+async function copyAdvancedPlayerPhoto(oldCi, newCi) {
+  if (!oldCi || !newCi || oldCi === newCi || oldCi.startsWith('TEMP-')) return null;
+
+  const oldPath = `${oldCi}.jpg`;
+  const newPath = `${newCi}.jpg`;
+  const { error } = await supabase.storage
+    .from('fotos_jugadores')
+    .copy(oldPath, newPath);
+
+  if (error) {
+    console.warn('No se pudo copiar la foto anterior al nuevo C.I.', error);
+    return null;
+  }
+
+  const { data } = supabase.storage
+    .from('fotos_jugadores')
+    .getPublicUrl(newPath);
+
+  return data.publicUrl;
+}
+
+async function updateLatestPlayerCategory(latestRecord, playerCi, category) {
+  if (!latestRecord || latestRecord.categoria_jugador === category) return false;
+
+  let query = supabase
+    .from('historial_participacion')
+    .update({ categoria_jugador: category });
+
+  if (latestRecord.id) {
+    query = query.eq('id', latestRecord.id);
+  } else {
+    query = query.eq('jugador_ci', playerCi).eq('año', latestRecord['año']);
+  }
+
+  const { error } = await query;
+  if (error) throw error;
+
+  const localRecord = latestRecord.id
+    ? state.history.find(h => h.id === latestRecord.id)
+    : state.history.find(h => h.jugador_ci === playerCi && h['año'] === latestRecord['año']);
+
+  if (localRecord) {
+    localRecord.categoria_jugador = category;
+  }
+
+  return true;
+}
+
+async function saveAdvancedPlayerChanges(action) {
+  const { player, newData, category, photoFile, latestRecord } = action;
+  const oldCi = player.ci;
+  const { nombres, apellidos, ci: newCi, fecha_nacimiento } = newData;
+  let photoUrl = player.foto_url || null;
+
+  if (oldCi === newCi) {
+    const { error } = await supabase
+      .from('jugadores')
+      .update({ nombres, apellidos, fecha_nacimiento })
+      .eq('ci', oldCi);
+
+    if (error) throw error;
+  } else {
+    const { error: insertError } = await supabase
+      .from('jugadores')
+      .insert({ ci: newCi, nombres, apellidos, fecha_nacimiento, foto_url: photoUrl });
+
+    if (insertError) throw insertError;
+
+    const { error: historyError } = await supabase
+      .from('historial_participacion')
+      .update({ jugador_ci: newCi })
+      .eq('jugador_ci', oldCi);
+
+    if (historyError) throw historyError;
+
+    const { error: deleteError } = await supabase
+      .from('jugadores')
+      .delete()
+      .eq('ci', oldCi);
+
+    if (deleteError) throw deleteError;
+
+    state.history.forEach(h => {
+      if (h.jugador_ci === oldCi) {
+        h.jugador_ci = newCi;
+      }
+    });
+  }
+
+  if (photoFile) {
+    photoUrl = await uploadAdvancedPlayerPhoto(photoFile, newCi);
+    const { error: photoUrlError } = await supabase
+      .from('jugadores')
+      .update({ foto_url: photoUrl })
+      .eq('ci', newCi);
+
+    if (photoUrlError) throw photoUrlError;
+  } else if (oldCi !== newCi) {
+    const copiedPhotoUrl = await copyAdvancedPlayerPhoto(oldCi, newCi);
+    if (copiedPhotoUrl) {
+      photoUrl = copiedPhotoUrl;
+      await supabase
+        .from('jugadores')
+        .update({ foto_url: photoUrl })
+        .eq('ci', newCi);
+    }
+  }
+
+  await updateLatestPlayerCategory(latestRecord, newCi, category);
+
+  const updatedPlayer = { ...player, ci: newCi, nombres, apellidos, fecha_nacimiento, foto_url: photoUrl };
+  const playerIndex = state.players.findIndex(p => p.ci === oldCi || p.ci === newCi);
+  if (playerIndex !== -1) {
+    state.players[playerIndex] = updatedPlayer;
+  }
+
+  localStorage.setItem('vinto_players', JSON.stringify(state.players));
+  localStorage.setItem('vinto_history', JSON.stringify(state.history));
+  updateStatsUI();
+
+  selectedAdvancedPlayerObj = updatedPlayer;
+  elements.searchAdvancedPlayer.value = formatFullName(updatedPlayer);
+  elements.advancedCI.value = updatedPlayer.ci;
+  elements.advancedPhotoInput.value = '';
+  elements.advancedPhotoPreview.src = getPlayerPhotoUrlByCi(updatedPlayer.ci, true);
+
+  if (state.selectedPlayer?.ci === oldCi || state.selectedPlayer?.ci === newCi) {
+    state.selectedPlayer = updatedPlayer;
+    selectPlayer(updatedPlayer);
+  }
+
+  if (selectedCarnetPlayerObj?.ci === oldCi || selectedCarnetPlayerObj?.ci === newCi) {
+    selectedCarnetPlayerObj = updatedPlayer;
+    renderCarnetPreview(updatedPlayer);
+  }
+}
+
 // Handle advanced edit submit (Save Changes)
-function handleAdvancedEditSubmit(e) {
+async function handleAdvancedEditSubmit(e) {
   e.preventDefault();
-  
+
   if (!selectedAdvancedPlayerObj) {
     showToast('Por favor selecciona un jugador primero', 'error');
     return;
   }
-  
+
   const nombres = elements.advancedNombres.value.trim().toUpperCase();
   const apellidos = elements.advancedApellidos.value.trim().toUpperCase();
   const ci = elements.advancedCI.value.trim();
   const birthdate = elements.advancedBirthdate.value || null;
-  
+  const category = elements.advancedCategory.value || 'natural';
+  const photoFile = elements.advancedPhotoInput.files?.[0] || null;
+  const latestRecord = getLatestPlayerRecord(selectedAdvancedPlayerObj.ci);
+
   if (!nombres || !apellidos || !ci) {
     showToast('Los campos de Nombres, Apellidos y C.I. son obligatorios', 'warning');
     return;
   }
-  
-  // Verify changes
-  const hasChanges = nombres !== selectedAdvancedPlayerObj.nombres || 
-                     apellidos !== selectedAdvancedPlayerObj.apellidos || 
-                     ci !== selectedAdvancedPlayerObj.ci || 
-                     birthdate !== selectedAdvancedPlayerObj.fecha_nacimiento;
-                     
-  if (!hasChanges) {
+
+  if (photoFile && !photoFile.type.startsWith('image/')) {
+    showToast('Selecciona un archivo de imagen válido', 'warning');
+    return;
+  }
+
+  const hasBasicChanges = nombres !== selectedAdvancedPlayerObj.nombres ||
+    apellidos !== selectedAdvancedPlayerObj.apellidos ||
+    ci !== selectedAdvancedPlayerObj.ci ||
+    birthdate !== selectedAdvancedPlayerObj.fecha_nacimiento;
+  const hasCategoryChange = Boolean(latestRecord && latestRecord.categoria_jugador !== category);
+  const hasPhotoChange = Boolean(photoFile);
+
+  if (!hasBasicChanges && !hasCategoryChange && !hasPhotoChange) {
     showToast('No has realizado ningún cambio en los campos', 'info');
     return;
   }
 
-  // If CI changed, verify the new CI is not already used by another player
   if (ci !== selectedAdvancedPlayerObj.ci) {
     const duplicate = state.players.find(p => p.ci === ci);
     if (duplicate) {
@@ -2130,35 +2331,29 @@ function handleAdvancedEditSubmit(e) {
       return;
     }
   }
-  
-  // Prepare Summary
-  let summaryHtml = '<ul style="list-style-type: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem;">';
-  if (nombres !== selectedAdvancedPlayerObj.nombres) {
-    summaryHtml += `<li><strong>Nombres:</strong> <del style="color: var(--color-danger);">${selectedAdvancedPlayerObj.nombres}</del> ➡️ <ins style="color: var(--color-success); text-decoration: none;">${nombres}</ins></li>`;
+
+  const previousSaveHtml = elements.btnAdvancedSave.innerHTML;
+  elements.btnAdvancedSave.disabled = true;
+  elements.btnAdvancedDelete.disabled = true;
+  elements.btnAdvancedSave.textContent = 'Guardando...';
+
+  try {
+    await saveAdvancedPlayerChanges({
+      player: selectedAdvancedPlayerObj,
+      newData: { nombres, apellidos, ci, fecha_nacimiento: birthdate },
+      category,
+      photoFile,
+      latestRecord
+    });
+    showToast('Datos del jugador guardados con éxito', 'success');
+  } catch (err) {
+    console.error('Advanced save failed:', err);
+    showToast(`Error al guardar: ${err.message || JSON.stringify(err)}`, 'error');
+  } finally {
+    elements.btnAdvancedSave.innerHTML = previousSaveHtml;
+    elements.btnAdvancedSave.disabled = false;
+    elements.btnAdvancedDelete.disabled = false;
   }
-  if (apellidos !== selectedAdvancedPlayerObj.apellidos) {
-    summaryHtml += `<li><strong>Apellidos:</strong> <del style="color: var(--color-danger);">${selectedAdvancedPlayerObj.apellidos}</del> ➡️ <ins style="color: var(--color-success); text-decoration: none;">${apellidos}</ins></li>`;
-  }
-  if (ci !== selectedAdvancedPlayerObj.ci) {
-    summaryHtml += `<li><strong>C.I.:</strong> <del style="color: var(--color-danger);">${selectedAdvancedPlayerObj.ci}</del> ➡️ <ins style="color: var(--color-success); text-decoration: none;">${ci}</ins></li>`;
-  }
-  if (birthdate !== selectedAdvancedPlayerObj.fecha_nacimiento) {
-    summaryHtml += `<li><strong>Nacimiento:</strong> <del style="color: var(--color-danger);">${formatDate(selectedAdvancedPlayerObj.fecha_nacimiento)}</del> ➡️ <ins style="color: var(--color-success); text-decoration: none;">${formatDate(birthdate)}</ins></li>`;
-  }
-  summaryHtml += '</ul>';
-  
-  pendingAdvancedAction = {
-    type: 'edit',
-    player: selectedAdvancedPlayerObj,
-    newData: { nombres, apellidos, ci, fecha_nacimiento: birthdate }
-  };
-  
-  elements.advancedModalTitle.textContent = 'Confirmar Modificación de Jugador';
-  elements.advancedModalWarningText.textContent = 'Esta acción modificará de forma permanente los datos del jugador en la base de datos central.';
-  elements.advancedModalSummaryText.innerHTML = summaryHtml;
-  
-  elements.advancedConfirmModal.classList.remove('hidden');
-  elements.advancedConfirmPassword.focus();
 }
 
 // Handle Advanced Delete Click
@@ -2194,131 +2389,61 @@ function handleAdvancedDeleteClick() {
 // Execute Pending Advanced Action
 async function executePendingAdvancedAction() {
   if (!pendingAdvancedAction) return;
-  
-  // Verify Admin password
+
+  if (pendingAdvancedAction.type !== 'delete') {
+    hideAdvancedConfirmModal();
+    return;
+  }
+
+  // Verify Admin password only for destructive delete operations.
   const password = elements.advancedConfirmPassword.value;
   if (password !== 'matricula2026') {
     elements.advancedConfirmPasswordError.classList.remove('hidden');
     elements.advancedConfirmPassword.focus();
     return;
   }
-  
-  // Hide password error if any
+
   elements.advancedConfirmPasswordError.classList.add('hidden');
-  
-  // Show spinner
+
   const btnText = elements.btnAdvancedModalConfirm.querySelector('.btn-text');
   const spinner = elements.btnAdvancedModalConfirm.querySelector('.btn-spinner');
-  btnText.textContent = 'Aplicando...';
+  btnText.textContent = 'Eliminando...';
   spinner.classList.remove('hidden');
   elements.btnAdvancedModalConfirm.disabled = true;
   elements.btnAdvancedModalCancel.disabled = true;
-  
+
   try {
-    if (pendingAdvancedAction.type === 'edit') {
-      const oldCi = pendingAdvancedAction.player.ci;
-      const { nombres, apellidos, ci: newCi, fecha_nacimiento } = pendingAdvancedAction.newData;
-      
-      if (oldCi === newCi) {
-        // Simple update
-        const { error } = await supabase
-          .from('jugadores')
-          .update({ nombres, apellidos, fecha_nacimiento })
-          .eq('ci', oldCi);
-          
-        if (error) throw error;
-        
-        // Update local cache
-        const index = state.players.findIndex(p => p.ci === oldCi);
-        if (index !== -1) {
-          state.players[index].nombres = nombres;
-          state.players[index].apellidos = apellidos;
-          state.players[index].fecha_nacimiento = fecha_nacimiento;
-        }
-      } else {
-        // Cascade manually: Create new, Update history, Delete old
-        // 1. Insert new player
-        const { error: insertError } = await supabase
-          .from('jugadores')
-          .insert({ ci: newCi, nombres, apellidos, fecha_nacimiento });
-          
-        if (insertError) throw insertError;
-        
-        // 2. Update history records
-        const { error: historyError } = await supabase
-          .from('historial_participacion')
-          .update({ jugador_ci: newCi })
-          .eq('jugador_ci', oldCi);
-          
-        if (historyError) throw historyError;
-        
-        // 3. Delete old player record
-        const { error: deleteError } = await supabase
-          .from('jugadores')
-          .delete()
-          .eq('ci', oldCi);
-          
-        if (deleteError) throw deleteError;
-        
-        // Update local cache
-        const index = state.players.findIndex(p => p.ci === oldCi);
-        if (index !== -1) {
-          state.players[index] = { ci: newCi, nombres, apellidos, fecha_nacimiento };
-        }
-        
-        state.history.forEach(h => {
-          if (h.jugador_ci === oldCi) {
-            h.jugador_ci = newCi;
-          }
-        });
-      }
-      
-      // Save local cache
-      localStorage.setItem('vinto_players', JSON.stringify(state.players));
-      localStorage.setItem('vinto_history', JSON.stringify(state.history));
-      
-      showToast('Datos del jugador modificados con éxito', 'success');
-      
-    } else if (pendingAdvancedAction.type === 'delete') {
-      const ci = pendingAdvancedAction.player.ci;
-      
-      // Delete ordered: first history, then player
-      const { error: historyError } = await supabase
-        .from('historial_participacion')
-        .delete()
-        .eq('jugador_ci', ci);
-        
-      if (historyError) throw historyError;
-      
-      const { error: playerError } = await supabase
-        .from('jugadores')
-        .delete()
-        .eq('ci', ci);
-        
-      if (playerError) throw playerError;
-      
-      // Update local cache
-      state.players = state.players.filter(p => p.ci !== ci);
-      state.history = state.history.filter(h => h.jugador_ci !== ci);
-      
-      localStorage.setItem('vinto_players', JSON.stringify(state.players));
-      localStorage.setItem('vinto_history', JSON.stringify(state.history));
-      
-      showToast('Jugador y su historial deportivo eliminados de la base de datos', 'success');
-    }
-    
-    // Refresh Stats UI
+    const ci = pendingAdvancedAction.player.ci;
+
+    const { error: historyError } = await supabase
+      .from('historial_participacion')
+      .delete()
+      .eq('jugador_ci', ci);
+
+    if (historyError) throw historyError;
+
+    const { error: playerError } = await supabase
+      .from('jugadores')
+      .delete()
+      .eq('ci', ci);
+
+    if (playerError) throw playerError;
+
+    state.players = state.players.filter(p => p.ci !== ci);
+    state.history = state.history.filter(h => h.jugador_ci !== ci);
+
+    localStorage.setItem('vinto_players', JSON.stringify(state.players));
+    localStorage.setItem('vinto_history', JSON.stringify(state.history));
+
     updateStatsUI();
-    
-    // Clear Advanced Panel Search and close modal
     clearAdvancedSearch();
     hideAdvancedConfirmModal();
-    
+
+    showToast('Jugador y su historial deportivo eliminados de la base de datos', 'success');
   } catch (err) {
-    console.error("Advanced administrative action failed:", err);
-    showToast(`Error al procesar la operación: ${err.message}`, 'error');
-    
-    // Reset confirmation button
+    console.error('Advanced delete failed:', err);
+    showToast(`Error al procesar la eliminación: ${err.message}`, 'error');
+
     btnText.textContent = 'Confirmar y Aplicar';
     spinner.classList.add('hidden');
     elements.btnAdvancedModalConfirm.disabled = false;
