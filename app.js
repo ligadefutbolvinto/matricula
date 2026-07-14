@@ -423,7 +423,7 @@ function generateTempCI() {
   return `TEMP-${year}${month}${day}${hours}${minutes}${seconds}`;
 }
 
-// Initialize Application Cache
+// Initialize Application Cache, then always refresh from Supabase on page load.
 async function initApp() {
   setupEventListeners();
   
@@ -446,17 +446,15 @@ async function initApp() {
       updateStatsUI();
       populateTeamDropdowns();
       updateCarnetQueueUI();
-      showToast('Base de datos local cargada desde caché', 'info');
+      showToast('Base de datos local cargada desde caché. Actualizando desde Supabase...', 'info');
     } catch (e) {
       console.error("Error reading cache", e);
-      await syncDatabase();
     }
-  } else {
-    // If no cache, perform initial sync
-    await syncDatabase();
   }
-}
 
+  // Always fetch a fresh copy when opening, refreshing, or pressing F5.
+  await syncDatabase();
+}
 // Sync Database from Supabase (handling pagination chunks of 1000)
 async function syncDatabase() {
   setSyncingState(true);
