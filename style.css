@@ -1858,7 +1858,7 @@ body {
   position: relative;
   z-index: 1;
   display: flex;
-  flex: 0 0 1.02cm;
+  flex: 0 0 1.55cm;
   width: 100%;
   min-height: 0;
   flex-direction: column;
@@ -1868,7 +1868,7 @@ body {
 }
 
 .carnet-championship-title {
-  font-size: 5.6pt;
+  font-size: 11.2pt;
   font-weight: 900;
   line-height: 1;
   color: #0f172a;
@@ -1877,9 +1877,9 @@ body {
 
 .carnet-championship-name {
   display: block;
-  width: 3.15cm;
+  width: 6.3cm;
   max-width: 100%;
-  height: 0.46cm;
+  height: 0.92cm;
   object-fit: contain;
 }
 
