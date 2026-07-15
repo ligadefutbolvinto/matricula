@@ -1,4 +1,4 @@
-﻿import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -388,7 +388,7 @@ function buildCarnetHtml(player) {
       <img src="/logo_liga.png" class="carnet-back-watermark" alt="" crossorigin="anonymous">
       <div class="carnet-championship-area">
         <span class="carnet-championship-title">CAMPEONATO</span>
-        <img src="/nombre.png" class="carnet-championship-name" alt="" crossorigin="anonymous">
+        <img src="/nombrefinal.png" class="carnet-championship-name" alt="" crossorigin="anonymous">
       </div>
       <div class="carnet-sig-area carnet-sig-president-area">
         <img src="/enrique.png" class="carnet-signature-img carnet-signature-president" alt="" crossorigin="anonymous">
